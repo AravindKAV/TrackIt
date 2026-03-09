@@ -41,6 +41,7 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
+        freeCompilerArgs += "-XsuppressKotlinVersionCompatibilityCheck"
     }
 
     buildFeatures {
@@ -70,8 +71,9 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
     implementation("androidx.activity:activity-compose:1.8.2")
 
-    // Compose UI
-    implementation("androidx.compose.ui:ui")              // includes KeyboardOptions
+    // Compose UI (KeyboardOptions comes from ui-text)
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-text")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui-tooling-preview")
