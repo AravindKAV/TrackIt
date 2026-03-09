@@ -27,7 +27,7 @@ fun CategorySpendList(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(spend.category, style = MaterialTheme.typography.bodyLarge)
-                    Text("?" + "%.0f".format(spend.amount), style = MaterialTheme.typography.bodyMedium)
+                    Text(formatInr(spend.amount), style = MaterialTheme.typography.bodyMedium)
                 }
                 LinearProgressIndicator(
                     progress = if (max == 0.0) 0f else (spend.amount / max).toFloat().coerceIn(0f, 1f),
@@ -35,7 +35,7 @@ fun CategorySpendList(
                 )
                 spend.budget?.let { budget ->
                     Text(
-                        text = "Budget ?${"%.0f".format(budget)}",
+                        text = "Budget ${formatInr(budget)}",
                         style = MaterialTheme.typography.bodySmall
                     )
                 }

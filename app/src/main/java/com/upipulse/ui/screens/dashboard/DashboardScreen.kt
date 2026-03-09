@@ -8,16 +8,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -25,6 +21,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.upipulse.ui.components.CategorySpendList
 import com.upipulse.ui.components.MetricCard
 import com.upipulse.ui.components.MerchantSpendList
+import com.upipulse.ui.components.formatInr
+import com.upipulse.ui.components.formatInrLabel
 
 @Composable
 fun DashboardScreen(
@@ -32,7 +30,6 @@ fun DashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
     when (val state = uiState) {
         DashboardUiState.Loading -> LoadingState(modifier)
         is DashboardUiState.Error -> {
@@ -47,7 +44,6 @@ fun DashboardScreen(
         }
         is DashboardUiState.Ready -> DashboardContent(state, modifier)
     }
-    SnackbarHost(hostState = snackbarHostState)
 }
 
 @Composable
@@ -63,13 +59,13 @@ private fun DashboardContent(state: DashboardUiState.Ready, modifier: Modifier) 
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 MetricCard(
                     title = "Total Outflow",
-                    value = "?" + "%,.0f".format(state.summary.totalOutflow),
-                    supportingText = "Avg ticket ?" + "%,.0f".format(state.summary.avgTicketSize)
+                    value = formatInr(state.summary.totalOutflow),
+                    supportingText = formatInrLabel("Avg ticket", state.summary.avgTicketSize)
                 )
                 MetricCard(
                     title = "Total Inflow",
-                    value = "?" + "%,.0f".format(state.summary.totalInflow),
-                    supportingText = "Cashback ?" + "%,.0f".format(state.summary.cashbackTotal)
+                    value = formatInr(state.summary.totalInflow),
+                    supportingText = formatInrLabel("Cashback", state.summary.cashbackTotal)
                 )
             }
         }

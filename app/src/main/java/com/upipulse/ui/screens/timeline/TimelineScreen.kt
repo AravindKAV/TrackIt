@@ -20,6 +20,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.upipulse.domain.model.Transaction
+import com.upipulse.ui.components.formatInr
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -60,7 +61,7 @@ private fun TransactionRow(transaction: Transaction) {
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = "?" + "%,.0f".format(transaction.amount),
+                text = formatInr(transaction.amount),
                 style = MaterialTheme.typography.bodyLarge
             )
             Text(

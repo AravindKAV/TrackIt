@@ -31,7 +31,7 @@ fun MerchantSpendList(
                             style = androidx.compose.material3.MaterialTheme.typography.bodySmall
                         )
                     }
-                    Text(text = "?" + "%.0f".format(merchantSpend.amount))
+                    Text(text = formatInr(merchantSpend.amount))
                 }
             }
         }
