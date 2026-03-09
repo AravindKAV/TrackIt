@@ -1,6 +1,8 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <style name="Theme.UpiPulse" parent="Theme.Material3.DayNight.NoActionBar">
+
+    <style name="Theme.UpiPulse" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:statusBarColor">?attr/colorPrimary</item>
         <item name="android:windowLightStatusBar" tools:targetApi="23">false</item>
     </style>
+
 </resources>
