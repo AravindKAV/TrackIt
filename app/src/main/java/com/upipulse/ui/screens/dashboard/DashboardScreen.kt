@@ -4,186 +4,194 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowForwardIos
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.upipulse.domain.model.CategorySpend
-import com.upipulse.domain.model.DashboardSummary
-import com.upipulse.domain.model.Merchant
-import com.upipulse.domain.model.MerchantSpend
-import com.upipulse.ui.components.CategorySpendList
-import com.upipulse.ui.components.MetricCard
-import com.upipulse.ui.components.MerchantSpendList
-import com.upipulse.ui.components.SpendDonutChart
-import com.upipulse.ui.components.formatInr
+import com.upipulse.domain.model.AccountSpending
+import com.upipulse.domain.model.DashboardAnalytics
+import com.upipulse.ui.components.CategoryPieChart
+import com.upipulse.ui.components.TransactionRow
+import com.upipulse.ui.components.WeeklySpendingBarChart
+import com.upipulse.util.formatInr
+import kotlin.math.absoluteValue
 
 @Composable
 fun DashboardScreen(
     modifier: Modifier = Modifier,
+    onAddTransaction: () -> Unit,
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    when (val state = uiState) {
+    val state by viewModel.uiState.collectAsState()
+    when (val uiState = state) {
         DashboardUiState.Loading -> LoadingState(modifier)
-        is DashboardUiState.Error -> ErrorState(message = state.message, modifier = modifier)
-        is DashboardUiState.Ready -> {
-            val hasData = state.summary.totalInflow > 0 ||
-                state.summary.totalOutflow > 0 ||
-                state.summary.categoryBreakdown.isNotEmpty()
-            val summary = if (hasData) state.summary else sampleSummary()
-            DashboardContent(summary = summary, modifier = modifier, showDemoBanner = !hasData)
-        }
+        is DashboardUiState.Ready -> DashboardContent(
+            analytics = uiState.analytics,
+            isDemo = uiState.isDemo,
+            onAddTransaction = onAddTransaction,
+            modifier = modifier
+        )
     }
 }
 
 @Composable
-private fun DashboardContent(summary: DashboardSummary, modifier: Modifier, showDemoBanner: Boolean) {
+private fun DashboardContent(
+    analytics: DashboardAnalytics,
+    isDemo: Boolean,
+    onAddTransaction: () -> Unit,
+    modifier: Modifier
+) {
+    val topCategory = analytics.categoryBreakdown.firstOrNull()
+    val peakDay = analytics.weeklyTrend.maxByOrNull { it.amount }
     LazyColumn(
         modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         item {
-            OverviewHero(summary, showDemoBanner)
-        }
-        if (summary.categoryBreakdown.isNotEmpty()) {
-            item {
-                Text(
-                    text = "Spending mix",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
-            }
-            item {
-                Card(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    SpendDonutChart(
-                        breakdown = summary.categoryBreakdown,
-                        modifier = Modifier.fillMaxWidth().padding(16.dp)
-                    )
-                }
-            }
-        }
-        if (summary.topMerchants.isNotEmpty()) {
-            item {
-                Text(
-                    text = "Top merchants",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
-            }
-            item {
-                MerchantSpendList(
-                    merchants = summary.topMerchants,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
-            }
-        }
-        if (summary.categoryBreakdown.isNotEmpty()) {
-            item {
-                Text(
-                    text = "Categories",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
-            }
-            item {
-                CategorySpendList(
-                    categories = summary.categoryBreakdown,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
-            }
-        }
-        item { Spacer(modifier = Modifier.height(24.dp)) }
-    }
-}
-
-@Composable
-private fun OverviewHero(summary: DashboardSummary, showDemoBanner: Boolean) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(MaterialTheme.shapes.large)
-                .background(
-                    Brush.linearGradient(
-                        listOf(Color(0xFF4C1D95), Color(0xFF6D28D9), Color(0xFF9333EA))
-                    )
-                )
-                .padding(20.dp)
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (showDemoBanner) {
-                    Text(
-                        text = "Demo data",
-                        color = Color.White.copy(alpha = 0.85f),
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                    Text(
-                        text = "Real transactions will replace this once added.",
-                        color = Color.White.copy(alpha = 0.8f),
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-                Text("This month", style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = 0.8f))
-                Text(
-                    text = formatInr(summary.totalOutflow),
-                    style = MaterialTheme.typography.displaySmall,
-                    color = Color.White
-                )
-                Text(
-                    text = "Spent so far",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.8f)
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    QuickMetricChip(label = "Avg ticket", value = formatInr(summary.avgTicketSize))
-                    QuickMetricChip(label = "Cashback", value = formatInr(summary.cashbackTotal))
-                }
-            }
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            MetricCard(
-                title = "Total Outflow",
-                value = formatInr(summary.totalOutflow),
-                modifier = Modifier.weight(1f)
-            )
-            MetricCard(
-                title = "Total Inflow",
-                value = formatInr(summary.totalInflow),
-                modifier = Modifier.weight(1f)
+            DashboardHeroCard(
+                total = analytics.monthlyTotal,
+                isDemo = isDemo,
+                topCategory = topCategory?.category,
+                topCategoryAmount = topCategory?.total ?: 0.0,
+                peakDayLabel = peakDay?.day?.name,
+                peakDayAmount = peakDay?.amount ?: 0.0,
+                onAddTransaction = onAddTransaction
             )
         }
-    }
-}
+        
+        if (analytics.accountSpending.isNotEmpty()) {
+            item { 
+                SectionHeader(
+                    title = "Bank Accounts", 
+                    subtitle = "Manage your spending across different banks" 
+                ) 
+            }
+            items(analytics.accountSpending) { account ->
+                AccountInsightCard(spending = account)
+            }
+        }
+        
+        if (analytics.categoryBreakdown.isNotEmpty() || analytics.weeklyTrend.isNotEmpty()) {
+            item { SectionHeader(title = "Analytics & Trends") }
+            
+            if (analytics.categoryBreakdown.isNotEmpty()) {
+                item {
+                    ElevatedCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "Category Distribution", 
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.TrendingUp,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                            CategoryPieChart(data = analytics.categoryBreakdown, modifier = Modifier.fillMaxWidth())
+                        }
+                    }
+                }
+            }
 
-@Composable
-private fun QuickMetricChip(label: String, value: String) {
-    Column(
-        modifier = Modifier
-            .background(Color.White.copy(alpha = 0.15f), MaterialTheme.shapes.medium)
-            .padding(horizontal = 12.dp, vertical = 8.dp)
-    ) {
-        Text(text = label, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall)
-        Text(text = value, color = Color.White, style = MaterialTheme.typography.bodyLarge)
+            if (analytics.weeklyTrend.isNotEmpty()) {
+                item {
+                    ElevatedCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            Text(
+                                "Weekly Spending", 
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Peak spending on ${peakDay?.day?.name ?: "—"}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(20.dp))
+                            WeeklySpendingBarChart(
+                                data = analytics.weeklyTrend, 
+                                modifier = Modifier.fillMaxWidth().height(200.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        if (analytics.recentTransactions.isNotEmpty()) {
+            item { 
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    SectionHeader(title = "Recent Activity")
+                    Text(
+                        "View All",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+            items(analytics.recentTransactions) { transaction ->
+                TransactionRow(transaction = transaction, modifier = Modifier.fillMaxWidth())
+            }
+        }
+        item { Spacer(modifier = Modifier.height(32.dp)) }
     }
 }
 
@@ -191,39 +199,247 @@ private fun QuickMetricChip(label: String, value: String) {
 private fun LoadingState(modifier: Modifier) {
     Column(
         modifier = modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Syncing your wallet...")
+        CircularProgressIndicator(strokeWidth = 3.dp)
     }
 }
 
 @Composable
-private fun ErrorState(message: String, modifier: Modifier) {
-    Column(
-        modifier = modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+private fun DashboardHeroCard(
+    total: Double,
+    isDemo: Boolean,
+    topCategory: String?,
+    topCategoryAmount: Double,
+    peakDayLabel: String?,
+    peakDayAmount: Double,
+    onAddTransaction: () -> Unit
+) {
+    val gradient = Brush.linearGradient(
+        listOf(
+            Color(0xFF6366F1), // Indigo
+            Color(0xFFA855F7), // Purple
+            Color(0xFFEC4899)  // Pink
+        )
+    )
+    
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(260.dp),
+        shape = RoundedCornerShape(32.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
-        Text("Unable to load dashboard")
-        Text(message, style = MaterialTheme.typography.bodySmall)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(gradient)
+        ) {
+            // Decorative circles
+            Box(
+                modifier = Modifier
+                    .size(150.dp)
+                    .offset(x = (-30).dp, y = (-30).dp)
+                    .background(Color.White.copy(alpha = 0.1f), CircleShape)
+            )
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .align(Alignment.BottomEnd)
+                    .offset(x = 20.dp, y = 20.dp)
+                    .background(Color.White.copy(alpha = 0.1f), CircleShape)
+            )
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column {
+                        if (isDemo) {
+                            Surface(
+                                color = Color.White.copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = "DEMO MODE",
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                        Text(
+                            "Total Spent", 
+                            style = MaterialTheme.typography.labelLarge, 
+                            color = Color.White.copy(alpha = 0.8f)
+                        )
+                        Text(
+                            formatInr(total), 
+                            style = MaterialTheme.typography.headlineLarge.copy(
+                                fontWeight = FontWeight.Black,
+                                fontSize = 36.sp
+                            ), 
+                            color = Color.White
+                        )
+                    }
+                    
+                    IconButton(
+                        onClick = onAddTransaction,
+                        modifier = Modifier
+                            .background(Color.White, CircleShape)
+                            .size(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Add",
+                            tint = Color(0xFF6366F1)
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    QuickStatChip(
+                        label = "Top Category",
+                        value = topCategory ?: "None",
+                        modifier = Modifier.weight(1f)
+                    )
+                    QuickStatChip(
+                        label = "Peak Day",
+                        value = peakDayLabel ?: "None",
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
     }
 }
 
-private fun sampleSummary(): DashboardSummary = DashboardSummary(
-    totalOutflow = 12850.0,
-    totalInflow = 1650.0,
-    avgTicketSize = 540.0,
-    topMerchants = listOf(
-        MerchantSpend(Merchant(id = "swiggy", name = "Swiggy"), 3450.0, 6),
-        MerchantSpend(Merchant(id = "amazon", name = "Amazon"), 2800.0, 3),
-        MerchantSpend(Merchant(id = "ola", name = "Ola"), 980.0, 4)
-    ),
-    categoryBreakdown = listOf(
-        CategorySpend("Food", 4200.0, 5000.0),
-        CategorySpend("Shopping", 3600.0, 4000.0),
-        CategorySpend("Transport", 1800.0, 2500.0),
-        CategorySpend("Bills", 1600.0, 2000.0)
-    ),
-    cashbackTotal = 250.0
+@Composable
+private fun AccountInsightCard(spending: AccountSpending) {
+    val accent = accountAccentColor(spending.account.id)
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(accent.copy(alpha = 0.15f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = spending.account.name.take(1).uppercase(),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = accent,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            
+            Column(
+                modifier = Modifier
+                    .padding(start = 16.dp)
+                    .weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    spending.account.name, 
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Balance: ${formatInr(spending.balance)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = formatInr(spending.amount),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.error
+                )
+                Text(
+                    text = "Spent",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionHeader(title: String, subtitle: String? = null) {
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Text(
+            title, 
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold)
+        )
+        if (subtitle != null) {
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun QuickStatChip(label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        color = Color.White.copy(alpha = 0.15f),
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Text(
+                label, 
+                style = MaterialTheme.typography.labelSmall, 
+                color = Color.White.copy(alpha = 0.7f),
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                value, 
+                style = MaterialTheme.typography.bodyMedium, 
+                color = Color.White,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+private val AccentPalette = listOf(
+    Color(0xFF6366F1), // Indigo
+    Color(0xFF0EA5E9), // Sky
+    Color(0xFF10B981), // Emerald
+    Color(0xFFF59E0B), // Amber
+    Color(0xFFEF4444)  // Red
 )
+
+private fun accountAccentColor(id: Long): Color =
+    if (AccentPalette.isEmpty()) Color(0xFF6366F1)
+    else AccentPalette[(id.toInt().absoluteValue) % AccentPalette.size]

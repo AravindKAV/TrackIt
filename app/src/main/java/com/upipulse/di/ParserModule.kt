@@ -1,17 +1,16 @@
 package com.upipulse.di
 
-import com.upipulse.ingestion.parser.RegexUpiParser
-import com.upipulse.ingestion.parser.TransactionPayloadParser
-import dagger.Binds
+import com.upipulse.service.parser.UpiDetectionParser
 import dagger.Module
+import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import dagger.multibindings.IntoSet
+import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
-interface ParserModule {
-    @Binds
-    @IntoSet
-    fun bindRegexParser(parser: RegexUpiParser): TransactionPayloadParser
+object ParserModule {
+    @Provides
+    @Singleton
+    fun provideUpiDetectionParser(): UpiDetectionParser = UpiDetectionParser()
 }

@@ -2,37 +2,35 @@ package com.upipulse.ui.screens.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.upipulse.domain.model.DashboardSummary
-import com.upipulse.domain.usecase.ObserveDashboardUseCase
+import com.upipulse.data.sample.SampleDataSource
+import com.upipulse.domain.model.DashboardAnalytics
+import com.upipulse.domain.usecase.ObserveDashboardAnalyticsUseCase
+import com.upipulse.domain.usecase.ObserveTransactionsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 
 sealed interface DashboardUiState {
     data object Loading : DashboardUiState
-    data class Ready(val summary: DashboardSummary) : DashboardUiState
-    data class Error(val message: String) : DashboardUiState
+    data class Ready(val analytics: DashboardAnalytics, val isDemo: Boolean) : DashboardUiState
 }
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
-    observeDashboardUseCase: ObserveDashboardUseCase
+    observeDashboardAnalyticsUseCase: ObserveDashboardAnalyticsUseCase,
+    observeTransactionsUseCase: ObserveTransactionsUseCase
 ) : ViewModel() {
-
-    private val _uiState: MutableStateFlow<DashboardUiState> = MutableStateFlow(DashboardUiState.Loading)
-    val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
-
-    init {
-        viewModelScope.launch {
-            observeDashboardUseCase()
-                .onEach { summary -> _uiState.value = DashboardUiState.Ready(summary) }
-                .catch { throwable -> _uiState.value = DashboardUiState.Error(throwable.message.orEmpty()) }
-                .collect { }
+    val uiState: StateFlow<DashboardUiState> = combine(
+        observeDashboardAnalyticsUseCase(),
+        observeTransactionsUseCase()
+    ) { analytics, transactions ->
+        if (transactions.isEmpty()) {
+            DashboardUiState.Ready(SampleDataSource.sampleAnalytics(), true)
+        } else {
+            DashboardUiState.Ready(analytics, false)
         }
-    }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardUiState.Loading)
 }

@@ -1,55 +1,76 @@
 package com.upipulse.data.local.dao
 
 import androidx.room.Dao
+import androidx.room.Delete
+import androidx.room.Embedded
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import com.upipulse.data.local.entity.TransactionEntity
+import java.time.Instant
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface TransactionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsert(transactions: List<TransactionEntity>)
+    suspend fun insert(transaction: TransactionEntity): Long
 
-    @Query("SELECT * FROM transactions ORDER BY timestamp DESC LIMIT :limit")
-    fun observeRecent(limit: Int = 200): Flow<List<TransactionEntity>>
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(transactions: List<TransactionEntity>)
 
-    @Query(
-        "SELECT SUM(CASE WHEN direction = 'DEBIT' THEN amount ELSE 0 END) AS totalDebit, " +
-            "SUM(CASE WHEN direction = 'CREDIT' THEN amount ELSE 0 END) AS totalCredit, " +
-            "AVG(amount) AS averageTicket FROM transactions"
-    )
-    fun observeTotals(): Flow<TotalsProjection>
+    @Update
+    suspend fun update(transaction: TransactionEntity)
 
-    @Query(
-        "SELECT merchantName AS merchantName, merchantId AS merchantId, SUM(amount) AS total, COUNT(*) AS count " +
-            "FROM transactions WHERE direction = 'DEBIT' GROUP BY merchantName, merchantId " +
-            "ORDER BY total DESC LIMIT :limit"
-    )
-    fun observeMerchantSpend(limit: Int = 5): Flow<List<MerchantSpendProjection>>
+    @Delete
+    suspend fun delete(transaction: TransactionEntity)
+
+    @Query("DELETE FROM transactions")
+    suspend fun clearAll()
 
     @Query(
-        "SELECT category AS category, SUM(amount) AS total FROM transactions WHERE direction = 'DEBIT' " +
-            "GROUP BY category ORDER BY total DESC"
+        "SELECT t.*, a.name AS accountName FROM transactions t " +
+            "LEFT JOIN accounts a ON a.id = t.accountId ORDER BY date DESC"
     )
-    fun observeCategorySpend(): Flow<List<CategorySpendProjection>>
+    fun observeAllWithAccount(): Flow<List<TransactionWithAccountProjection>>
 
-    data class TotalsProjection(
-        val totalDebit: Double?,
-        val totalCredit: Double?,
-        val averageTicket: Double?
+    @Query(
+        "SELECT t.*, a.name AS accountName FROM transactions t " +
+            "LEFT JOIN accounts a ON a.id = t.accountId ORDER BY date DESC LIMIT :limit"
+    ) 
+    fun observeRecentWithAccount(limit: Int): Flow<List<TransactionWithAccountProjection>>
+
+    @Query(
+        "SELECT t.*, a.name AS accountName FROM transactions t " +
+            "LEFT JOIN accounts a ON a.id = t.accountId WHERE t.id = :id LIMIT 1"
     )
+    fun observeWithAccount(id: Long): Flow<TransactionWithAccountProjection?>
 
-    data class MerchantSpendProjection(
-        val merchantName: String,
-        val merchantId: String?,
-        val total: Double,
-        val count: Int
+    @Query("SELECT * FROM transactions WHERE id = :id LIMIT 1")
+    suspend fun getByIdNow(id: Long): TransactionEntity?
+
+    @Query("SELECT * FROM transactions WHERE date BETWEEN :start AND :end ORDER BY date DESC")
+    fun observeBetween(start: Instant, end: Instant): Flow<List<TransactionEntity>>
+
+    @Query("SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE date BETWEEN :start AND :end")
+    fun observeTotalBetween(start: Instant, end: Instant): Flow<Double>
+
+    @Query(
+        "SELECT category AS category, SUM(amount) AS total FROM transactions " +
+            "WHERE date BETWEEN :start AND :end GROUP BY category ORDER BY total DESC"
     )
+    fun observeCategorySummary(start: Instant, end: Instant): Flow<List<CategorySummaryProjection>>
 
-    data class CategorySpendProjection(
+    @Query("UPDATE transactions SET accountId = :newAccountId WHERE accountId = :oldAccountId")
+    suspend fun reassignAccount(oldAccountId: Long, newAccountId: Long)
+
+    data class CategorySummaryProjection(
         val category: String,
         val total: Double
+    )
+
+    data class TransactionWithAccountProjection(
+        @Embedded val transaction: TransactionEntity,
+        val accountName: String?
     )
 }
