@@ -5,25 +5,57 @@ import android.content.Intent
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.runtime.collectAsState
-import kotlinx.coroutines.flow.collect
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 
 @Composable
 fun OnboardingScreen(
@@ -52,65 +84,185 @@ fun OnboardingScreen(
         }
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text(text = "Stay on top of your UPI spending", style = MaterialTheme.typography.headlineSmall)
-        Text(
-            text = "UPI Pulse tracks SMS, notifications and manual entries to build a living ledger.",
-            style = MaterialTheme.typography.bodyMedium
+    val gradient = Brush.verticalGradient(
+        listOf(
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+            MaterialTheme.colorScheme.surface
         )
-        FeatureCard(title = "Expense tracking", description = "Add expenses manually or let the app read your UPI alerts.")
-        FeatureCard(title = "Auto detection", description = "We parse SMS and notifications from Google Pay, PhonePe, Paytm and more.")
-        FeatureCard(title = "Analytics", description = "A fintech-style dashboard shows category and weekly trends.")
-        Text(text = "Permissions", style = MaterialTheme.typography.titleMedium)
-        PermissionCard(
-            title = "SMS detection",
-            granted = state.smsEnabled,
-            description = "Grant READ and RECEIVE SMS to capture bank alerts.",
-            actionLabel = if (state.smsEnabled) "Granted" else "Grant",
-            onClick = {
-                smsLauncher.launch(arrayOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS))
-            },
-            forceEnabled = false
-        )
-        PermissionCard(
-            title = "Notification listener",
-            granted = state.notificationEnabled,
-            description = "Allow notification access for Google Pay / PhonePe alerts.",
-            actionLabel = "Open Settings",
-            onClick = {
-                context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-            },
-            forceEnabled = true
-        )
-        PermissionCard(
-            title = "Notification permission",
-            granted = state.notificationEnabled,
-            description = "Allow app notifications so we can confirm detections.",
-            actionLabel = "Allow",
-            onClick = {
-                notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            },
-            forceEnabled = false
-        )
-        Spacer(modifier = Modifier.weight(1f))
-        Button(
-            onClick = { viewModel.completeOnboarding() },
-            modifier = Modifier.fillMaxWidth()
+    )
+
+    Box(modifier = Modifier.fillMaxSize().background(gradient)) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(24.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            Text("Start tracking")
+            item {
+                Column(modifier = Modifier.padding(top = 32.dp, bottom = 16.dp)) {
+                    Text(
+                        text = "UPI Pulse",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 2.sp
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Master your money with precision",
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.Black,
+                            lineHeight = 36.sp
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Track SMS, notifications and manual entries to build your financial ledger automatically.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            item {
+                Text(
+                    "Features",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            item {
+                FeatureRow(
+                    title = "Expense Tracking",
+                    description = "Manual entries or auto-detection from bank alerts.",
+                    icon = Icons.Default.Edit,
+                    color = Color(0xFF6366F1)
+                )
+            }
+            item {
+                FeatureRow(
+                    title = "Auto Detection",
+                    description = "Seamless parsing of GPay, PhonePe, and Paytm alerts.",
+                    icon = Icons.Default.AutoAwesome,
+                    color = Color(0xFFA855F7)
+                )
+            }
+            item {
+                FeatureRow(
+                    title = "Analytics",
+                    description = "Visual insights into your weekly and category spending.",
+                    icon = Icons.Default.BarChart,
+                    color = Color(0xFFEC4899)
+                )
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    "Permissions",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "Grant access to enable automatic tracking features.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            item {
+                PermissionCard(
+                    title = "SMS Access",
+                    description = "Required to capture bank debit alerts via SMS.",
+                    icon = Icons.Default.Sms,
+                    granted = state.smsEnabled,
+                    onClick = {
+                        smsLauncher.launch(arrayOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS))
+                    }
+                )
+            }
+
+            item {
+                PermissionCard(
+                    title = "Notification Listener",
+                    description = "Enable access to detect app-based UPI alerts.",
+                    icon = Icons.Default.NotificationsActive,
+                    granted = state.notificationEnabled,
+                    actionLabel = "Open Settings",
+                    onClick = {
+                        context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                    },
+                    forceEnabled = true
+                )
+            }
+
+            item {
+                PermissionCard(
+                    title = "Push Notifications",
+                    description = "Receive confirmations for detected transactions.",
+                    icon = Icons.Default.Notifications,
+                    granted = state.notificationEnabled,
+                    onClick = {
+                        notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                )
+            }
+
+            item {
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Security, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(
+                            "Privacy First: All data is processed on-device and never leaves your phone.",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(24.dp))
+                Button(
+                    onClick = { viewModel.completeOnboarding() },
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+                ) {
+                    Text("Start Tracking Now", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+                Spacer(modifier = Modifier.height(48.dp))
+            }
         }
     }
 }
 
 @Composable
-private fun FeatureCard(title: String, description: String) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            Text(description, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp))
+private fun FeatureRow(title: String, description: String, icon: ImageVector, color: Color) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .background(color.copy(alpha = 0.15f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(28.dp))
+        }
+        Spacer(modifier = Modifier.width(16.dp))
+        Column {
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -120,16 +272,63 @@ private fun PermissionCard(
     title: String,
     granted: Boolean,
     description: String,
-    actionLabel: String,
+    icon: ImageVector,
+    actionLabel: String = "Grant Access",
     onClick: () -> Unit,
-    forceEnabled: Boolean
+    forceEnabled: Boolean = false
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    val backgroundColor by animateColorAsState(
+        targetValue = if (granted && !forceEnabled) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surface,
+        label = "bgColor"
+    )
+
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = backgroundColor)
+    ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            Text(description, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 4.dp))
-            Button(onClick = onClick, enabled = forceEnabled || !granted) {
-                Text(if (granted && !forceEnabled) "Granted" else actionLabel)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    icon, 
+                    contentDescription = null, 
+                    tint = if (granted && !forceEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.weight(1f))
+                if (granted && !forceEnabled) {
+                    Icon(Icons.Default.CheckCircle, contentDescription = "Granted", tint = MaterialTheme.colorScheme.primary)
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                description, 
+                style = MaterialTheme.typography.bodySmall, 
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            if (!granted || forceEnabled) {
+                Button(
+                    onClick = onClick,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = if (forceEnabled && granted) 
+                        ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+                        else ButtonDefaults.buttonColors()
+                ) {
+                    Text(if (forceEnabled && granted) "Adjust Settings" else actionLabel, fontWeight = FontWeight.Bold)
+                }
+            } else {
+                OutlinedButton(
+                    onClick = { /* Already granted */ },
+                    enabled = false,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Permission Granted", fontWeight = FontWeight.Bold)
+                }
             }
         }
     }
