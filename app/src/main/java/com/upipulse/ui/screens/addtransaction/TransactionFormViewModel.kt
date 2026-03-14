@@ -39,9 +39,11 @@ data class TransactionFormState(
     val notes: String = "",
     val source: TransactionSource = TransactionSource.MANUAL,
     val accountId: Long? = null,
+    val targetAccountId: Long? = null,
     val isEdit: Boolean = false,
     val isSaving: Boolean = false,
     val isCredit: Boolean = false,
+    val isTransfer: Boolean = false,
     val errorMessage: String? = null
 )
 
@@ -61,8 +63,9 @@ class TransactionFormViewModel @Inject constructor(
     private val _state = MutableStateFlow(TransactionFormState(isEdit = transactionId != null))
     val state: StateFlow<TransactionFormState> = _state.asStateFlow()
 
-    private val _categories = MutableStateFlow<List<String>>(emptyList())
-    val categories: StateFlow<List<String>> = _categories.asStateFlow()
+    private val _allCategories = MutableStateFlow<List<String>>(emptyList())
+    private val _filteredCategories = MutableStateFlow<List<String>>(emptyList())
+    val categories: StateFlow<List<String>> = _filteredCategories.asStateFlow()
 
     private val _accounts = MutableStateFlow<List<Account>>(emptyList())
     val accounts: StateFlow<List<Account>> = _accounts.asStateFlow()
@@ -73,12 +76,9 @@ class TransactionFormViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             observeCategoriesUseCase().collect { list ->
-                // Fix: deduplicate categories if they are repeated
-                val distinctCategories = list.map { it.name }.distinct()
-                _categories.value = distinctCategories
-                if (_state.value.category.isEmpty() && distinctCategories.isNotEmpty()) {
-                    _state.update { it.copy(category = distinctCategories.first()) }
-                }
+                val distinct = list.map { it.name }.distinct()
+                _allCategories.value = distinct
+                updateFilteredCategories()
             }
         }
         viewModelScope.launch {
@@ -86,8 +86,6 @@ class TransactionFormViewModel @Inject constructor(
                 _accounts.value = list
                 if (_state.value.accountId == null && list.isNotEmpty()) {
                     _state.update { it.copy(accountId = list.first().id) }
-                } else if (list.none { it.id == _state.value.accountId }) {
-                    _state.update { it.copy(accountId = list.firstOrNull()?.id) }
                 }
             }
         }
@@ -104,10 +102,28 @@ class TransactionFormViewModel @Inject constructor(
                         accountId = transaction.account.id,
                         source = transaction.source,
                         isEdit = true,
-                        isCredit = transaction.amount > 0
+                        isCredit = transaction.amount > 0,
+                        isTransfer = transaction.category == "Transfer"
                     )
+                    updateFilteredCategories()
                 }
             }
+        }
+    }
+
+    private fun updateFilteredCategories() {
+        val s = _state.value
+        val creditNames = listOf("Salary", "Refunds", "Cashback", "Interest", "Gift Received", "Rental Income", "Others")
+        val filtered = if (s.isTransfer) {
+            listOf("Transfer")
+        } else if (s.isCredit) {
+            _allCategories.value.filter { it in creditNames }
+        } else {
+            _allCategories.value.filter { it !in creditNames && it != "Transfer" || it == "Others" }
+        }
+        _filteredCategories.value = filtered
+        if (s.category !in filtered && filtered.isNotEmpty()) {
+            _state.update { it.copy(category = filtered.first()) }
         }
     }
 
@@ -139,8 +155,14 @@ class TransactionFormViewModel @Inject constructor(
         _state.update { it.copy(accountId = accountId) }
     }
 
-    fun updateTransactionType(isCredit: Boolean) {
-        _state.update { it.copy(isCredit = isCredit) }
+    fun updateTargetAccount(accountId: Long) {
+        _state.update { it.copy(targetAccountId = accountId) }
+    }
+
+    fun updateType(isCredit: Boolean, isTransfer: Boolean) {
+        _state.update { it.copy(isCredit = isCredit, isTransfer = isTransfer) }
+        if (isTransfer) _state.update { it.copy(category = "Transfer") }
+        updateFilteredCategories()
     }
 
     fun save() {
@@ -148,55 +170,89 @@ class TransactionFormViewModel @Inject constructor(
             val current = _state.value
             val validationError = validate(current)
             if (validationError != null) {
-                _state.update { it.copy(errorMessage = validationError) }
                 eventsChannel.send(TransactionFormEvent.Error(validationError))
                 return@launch
             }
-            _state.update { it.copy(isSaving = true, errorMessage = null) }
-            val selectedAccount = _accounts.value.firstOrNull { it.id == current.accountId }
-                ?: run {
-                    val message = "Add a bank account in Settings before saving"
-                    _state.update { it.copy(isSaving = false, errorMessage = message) }
-                    eventsChannel.send(TransactionFormEvent.Error(message))
-                    return@launch
-                }
+            _state.update { it.copy(isSaving = true) }
             
-            val finalAmount = current.amount.toDouble().let { if (current.isCredit) it else -it }
-            
-            val transaction = Transaction(
-                id = transactionId ?: 0L,
-                amount = finalAmount,
-                merchant = current.merchant.trim(),
-                category = current.category,
-                paymentMethod = current.paymentMethod,
-                date = current.date.atStartOfDay(zoneId).toInstant(),
-                notes = current.notes.ifBlank { null },
-                source = current.source,
-                account = selectedAccount.toSummary()
-            )
-            runCatching {
-                if (current.isEdit) updateTransactionUseCase(transaction) else insertTransactionUseCase(transaction)
-            }.onSuccess {
-                eventsChannel.send(
-                    TransactionFormEvent.Saved(
-                        if (current.isEdit) "Transaction updated" else "Transaction added"
-                    )
-                )
-                _state.update { it.copy(isSaving = false) }
-            }.onFailure { throwable ->
-                _state.update { it.copy(isSaving = false, errorMessage = throwable.message) }
-                eventsChannel.send(TransactionFormEvent.Error(throwable.message.orEmpty()))
+            if (current.isTransfer) {
+                handleTransfer(current)
+            } else {
+                handleNormalSave(current)
             }
         }
     }
 
-    private fun validate(state: TransactionFormState): String? {
-        val amount = state.amount.toDoubleOrNull()
-        if (amount == null || amount <= 0) return "Enter an amount greater than 0"
-        if (state.merchant.isBlank()) return "Merchant is required"
-        if (state.category.isBlank()) return "Select a category"
-        if (state.paymentMethod.isBlank()) return "Select a payment method"
-        if (state.accountId == null) return "Select a bank account"
+    private suspend fun handleTransfer(s: TransactionFormState) {
+        val amount = s.amount.toDouble()
+        val fromAcc = _accounts.value.first { it.id == s.accountId }
+        val toAcc = _accounts.value.first { it.id == s.targetAccountId }
+        
+        val debit = Transaction(
+            amount = -amount,
+            merchant = "Transfer to ${toAcc.name}",
+            category = "Transfer",
+            paymentMethod = s.paymentMethod,
+            date = s.date.atStartOfDay(zoneId).toInstant(),
+            notes = s.notes,
+            source = TransactionSource.MANUAL,
+            account = fromAcc.toSummary()
+        )
+        val credit = Transaction(
+            amount = amount,
+            merchant = "Transfer from ${fromAcc.name}",
+            category = "Transfer",
+            paymentMethod = s.paymentMethod,
+            date = s.date.atStartOfDay(zoneId).toInstant(),
+            notes = s.notes,
+            source = TransactionSource.MANUAL,
+            account = toAcc.toSummary()
+        )
+        
+        runCatching {
+            insertTransactionUseCase(debit)
+            insertTransactionUseCase(credit)
+        }.onSuccess {
+            eventsChannel.send(TransactionFormEvent.Saved("Transfer completed"))
+        }.onFailure {
+            eventsChannel.send(TransactionFormEvent.Error(it.message ?: "Transfer failed"))
+        }
+        _state.update { it.copy(isSaving = false) }
+    }
+
+    private suspend fun handleNormalSave(s: TransactionFormState) {
+        val amount = s.amount.toDouble().let { if (s.isCredit) it else -it }
+        val acc = _accounts.value.first { it.id == s.accountId }
+        val txn = Transaction(
+            id = transactionId ?: 0L,
+            amount = amount,
+            merchant = s.merchant.trim(),
+            category = s.category,
+            paymentMethod = s.paymentMethod,
+            date = s.date.atStartOfDay(zoneId).toInstant(),
+            notes = s.notes.ifBlank { null },
+            source = s.source,
+            account = acc.toSummary()
+        )
+        runCatching {
+            if (s.isEdit) updateTransactionUseCase(txn) else insertTransactionUseCase(txn)
+        }.onSuccess {
+            eventsChannel.send(TransactionFormEvent.Saved("Transaction saved"))
+        }.onFailure {
+            eventsChannel.send(TransactionFormEvent.Error(it.message ?: "Failed to save"))
+        }
+        _state.update { it.copy(isSaving = false) }
+    }
+
+    private fun validate(s: TransactionFormState): String? {
+        if (s.amount.toDoubleOrNull() == null || s.amount.toDouble() <= 0) return "Invalid amount"
+        if (s.accountId == null) return "Source account required"
+        if (s.isTransfer) {
+            if (s.targetAccountId == null) return "Destination account required"
+            if (s.accountId == s.targetAccountId) return "Cannot transfer to same account"
+        } else {
+            if (s.merchant.isBlank()) return "Merchant required"
+        }
         return null
     }
 }

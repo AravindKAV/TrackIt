@@ -1,22 +1,28 @@
 package com.upipulse.ui
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -29,8 +35,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -49,6 +58,7 @@ import com.upipulse.ui.screens.settings.SettingsScreen
 import com.upipulse.ui.screens.splash.SplashEvent
 import com.upipulse.ui.screens.splash.SplashScreen
 import com.upipulse.ui.screens.transactions.TransactionsScreen
+import com.upipulse.ui.screens.history.HistoryScreen
 import kotlinx.coroutines.launch
 
 @Composable
@@ -65,40 +75,46 @@ fun UpiPulseAppRoot() {
                 enter = fadeIn() + expandVertically(),
                 exit = fadeOut() + shrinkVertically()
             ) {
-                NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 0.dp,
-                    windowInsets = WindowInsets.navigationBars,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).clip(RoundedCornerShape(24.dp))
-                ) {
-                    BottomDestination.values().forEach { destination ->
-                        val selected = appState.currentDestination?.route == destination.route
-                        NavigationBarItem(
-                            selected = selected,
-                            onClick = { appState.navigateToBottom(destination) },
-                            icon = { 
-                                Icon(
-                                    imageVector = destination.icon, 
-                                    contentDescription = destination.label,
-                                    modifier = Modifier.padding(4.dp)
-                                ) 
-                            },
-                            label = { 
-                                Text(
-                                    text = destination.label,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                                    fontSize = 11.sp
-                                ) 
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.primary,
-                                selectedTextColor = MaterialTheme.colorScheme.primary,
-                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                            )
-                        )
+                Box(contentAlignment = Alignment.BottomCenter) {
+                    NavigationBar(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 0.dp,
+                        windowInsets = WindowInsets.navigationBars,
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .clip(RoundedCornerShape(24.dp))
+                    ) {
+                        val items = BottomDestination.values()
+                        // Ensure we have exactly 4 items for the split layout
+                        val leftItems = items.take(2)
+                        val rightItems = items.takeLast(2)
+
+                        leftItems.forEach { destination ->
+                            NavigationItem(appState, destination)
+                        }
+
+                        // Spacer to make room for the central FAB
+                        Spacer(modifier = Modifier.weight(0.6f))
+
+                        rightItems.forEach { destination ->
+                            NavigationItem(appState, destination)
+                        }
+                    }
+
+                    // Centered Floating Action Button
+                    val fabGradient = Brush.linearGradient(listOf(Color(0xFF6366F1), Color(0xFFA855F7)))
+                    FloatingActionButton(
+                        onClick = { appState.navController.navigate(Destinations.ADD_TRANSACTION) },
+                        shape = CircleShape,
+                        containerColor = Color.Transparent,
+                        contentColor = Color.White,
+                        modifier = Modifier
+                            .offset(y = (-32).dp)
+                            .size(60.dp)
+                            .background(fabGradient, CircleShape)
+                            .shadow(8.dp, CircleShape)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Add", modifier = Modifier.size(32.dp))
                     }
                 }
             }
@@ -133,7 +149,7 @@ fun UpiPulseAppRoot() {
                 })
             }
             composable(Destinations.DASHBOARD) {
-                DashboardScreen(onAddTransaction = { appState.navController.navigate(Destinations.ADD_TRANSACTION) })
+                DashboardScreen()
             }
             composable(Destinations.TRANSACTIONS) {
                 TransactionsScreen(
@@ -143,6 +159,11 @@ fun UpiPulseAppRoot() {
                     },
                     onMessage = { message -> scope.launch { snackbarHostState.showSnackbar(message) } }
                 )
+            }
+            composable(Destinations.HISTORY) {
+                HistoryScreen(onEditTransaction = { id ->
+                    appState.navController.navigate("${Destinations.EDIT_TRANSACTION}/$id")
+                })
             }
             composable(Destinations.SETTINGS) {
                 SettingsScreen(onMessage = { message -> scope.launch { snackbarHostState.showSnackbar(message) } })
@@ -182,4 +203,19 @@ fun UpiPulseAppRoot() {
             }
         }
     }
+}
+
+@Composable
+private fun RowScope.NavigationItem(appState: com.upipulse.ui.navigation.UpiPulseAppState, destination: BottomDestination) {
+    val selected = appState.currentDestination?.route == destination.route
+    NavigationBarItem(
+        selected = selected,
+        onClick = { appState.navigateToBottom(destination) },
+        icon = { Icon(imageVector = destination.icon, contentDescription = destination.label) },
+        label = { Text(text = destination.label, fontSize = 10.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal) },
+        colors = NavigationBarItemDefaults.colors(
+            selectedIconColor = MaterialTheme.colorScheme.primary,
+            indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+        )
+    )
 }

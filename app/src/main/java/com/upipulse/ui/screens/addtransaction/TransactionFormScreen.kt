@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
@@ -105,7 +106,7 @@ fun TransactionFormScreen(
                 .padding(20.dp)
         ) {
             Text(
-                text = if (state.isEdit) "Edit Transaction" else "New Transaction",
+                text = if (state.isEdit) "Edit Entry" else "New Entry",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.ExtraBold,
                 color = MaterialTheme.colorScheme.onSurface
@@ -113,15 +114,15 @@ fun TransactionFormScreen(
             
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Transaction Type Toggle (Debit vs Credit)
+            // Type Selection
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 FilterChip(
-                    selected = !state.isCredit,
-                    onClick = { viewModel.updateTransactionType(false) },
-                    label = { Text("Debit (Spent)") },
+                    selected = !state.isCredit && !state.isTransfer,
+                    onClick = { viewModel.updateType(isCredit = false, isTransfer = false) },
+                    label = { Text("Debit") },
                     modifier = Modifier.weight(1f),
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = MaterialTheme.colorScheme.errorContainer,
@@ -130,12 +131,22 @@ fun TransactionFormScreen(
                 )
                 FilterChip(
                     selected = state.isCredit,
-                    onClick = { viewModel.updateTransactionType(true) },
-                    label = { Text("Credit (Income)") },
+                    onClick = { viewModel.updateType(isCredit = true, isTransfer = false) },
+                    label = { Text("Credit") },
                     modifier = Modifier.weight(1f),
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = Color(0xFF10B981).copy(alpha = 0.2f),
                         selectedLabelColor = Color(0xFF059669)
+                    )
+                )
+                FilterChip(
+                    selected = state.isTransfer,
+                    onClick = { viewModel.updateType(isCredit = false, isTransfer = true) },
+                    label = { Text("Transfer") },
+                    modifier = Modifier.weight(1f),
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 )
             }
@@ -165,33 +176,38 @@ fun TransactionFormScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Merchant Field
-                    FormTextField(
-                        value = state.merchant,
-                        onValueChange = viewModel::updateMerchant,
-                        label = if (state.isCredit) "From (Sender)" else "Merchant / To",
-                        icon = Icons.Default.Storefront
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Account Field
-                    if (accounts.isEmpty()) {
-                        ElevatedCard(
-                            onClick = { onManageAccounts?.invoke() ?: onError("Add account in Settings") },
-                            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.1f)),
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text("Add a bank account to start", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
-                            }
-                        }
-                    } else {
+                    if (state.isTransfer) {
+                        // Source Account
                         AccountDropdownField(
-                            label = "Bank Account",
+                            label = "From Account",
+                            accounts = accounts,
+                            selectedId = state.accountId,
+                            onAccountSelected = viewModel::updateAccount
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.SwapHoriz, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        // Target Account
+                        AccountDropdownField(
+                            label = "To Account",
+                            accounts = accounts,
+                            selectedId = state.targetAccountId,
+                            onAccountSelected = viewModel::updateTargetAccount
+                        )
+                    } else {
+                        // Merchant / Sender Field
+                        FormTextField(
+                            value = state.merchant,
+                            onValueChange = viewModel::updateMerchant,
+                            label = if (state.isCredit) "From (Sender)" else "Merchant / To",
+                            icon = Icons.Default.Storefront
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        // Single Account Selection
+                        AccountDropdownField(
+                            label = "Account",
                             accounts = accounts,
                             selectedId = state.accountId,
                             onAccountSelected = viewModel::updateAccount
@@ -200,7 +216,7 @@ fun TransactionFormScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Category & Payment Method Row
+                    // Category & Payment Method
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Box(modifier = Modifier.weight(1f)) {
                             DropdownField(
@@ -208,7 +224,8 @@ fun TransactionFormScreen(
                                 value = state.category,
                                 options = categories,
                                 icon = Icons.Default.Category,
-                                onValueSelected = viewModel::updateCategory
+                                onValueSelected = viewModel::updateCategory,
+                                enabled = !state.isTransfer
                             )
                         }
                         Box(modifier = Modifier.weight(1f)) {
@@ -284,7 +301,7 @@ fun TransactionFormScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        if (state.isEdit) "Update Transaction" else "Save Transaction",
+                        if (state.isEdit) "Update Entry" else if (state.isTransfer) "Complete Transfer" else "Save Entry",
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
                         color = Color.White
@@ -397,13 +414,14 @@ private fun DropdownField(
     value: String,
     options: List<String>,
     icon: ImageVector,
-    onValueSelected: (String) -> Unit
+    onValueSelected: (String) -> Unit,
+    enabled: Boolean = true
 ) {
     var expanded by remember { mutableStateOf(false) }
     
     ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = !expanded }
+        expanded = expanded && enabled,
+        onExpandedChange = { if (enabled) expanded = !expanded }
     ) {
         OutlinedTextField(
             value = value,
@@ -414,13 +432,14 @@ private fun DropdownField(
             modifier = Modifier
                 .fillMaxWidth()
                 .menuAnchor(),
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            trailingIcon = { if (enabled) ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             shape = RoundedCornerShape(16.dp),
+            enabled = enabled,
             colors = OutlinedTextFieldDefaults.colors(
                 unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
             )
         )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        ExposedDropdownMenu(expanded = expanded && enabled, onDismissRequest = { expanded = false }) {
             options.forEach { option ->
                 DropdownMenuItem(
                     text = { Text(option, maxLines = 1, overflow = TextOverflow.Ellipsis) },

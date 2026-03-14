@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import kotlin.math.abs
 
 @Singleton
 class ExpenseRepositoryImpl @Inject constructor(
@@ -107,7 +108,7 @@ class ExpenseRepositoryImpl @Inject constructor(
         withContext(ioDispatcher) {
             val entity = transaction.toEntity()
             transactionDao.insert(entity)
-            accountDao.adjustBalance(transaction.account.id, -transaction.amount)
+            accountDao.adjustBalance(transaction.account.id, transaction.amount)
         }
     }
 
@@ -117,10 +118,12 @@ class ExpenseRepositoryImpl @Inject constructor(
             val existing = transactionDao.getByIdNow(transaction.id)
             if (existing != null) {
                 if (existing.accountId != transaction.account.id) {
-                    accountDao.adjustBalance(existing.accountId, existing.amount)
-                    accountDao.adjustBalance(transaction.account.id, -transaction.amount)
+                    // Reverse old amount on old account
+                    accountDao.adjustBalance(existing.accountId, -existing.amount)
+                    // Apply new amount on new account
+                    accountDao.adjustBalance(transaction.account.id, transaction.amount)
                 } else {
-                    val delta = existing.amount - transaction.amount
+                    val delta = transaction.amount - existing.amount
                     accountDao.adjustBalance(transaction.account.id, delta)
                 }
             }
@@ -132,7 +135,7 @@ class ExpenseRepositoryImpl @Inject constructor(
         withContext(ioDispatcher) {
             val entity = transaction.toEntity()
             transactionDao.delete(entity)
-            accountDao.adjustBalance(transaction.account.id, transaction.amount)
+            accountDao.adjustBalance(transaction.account.id, -transaction.amount)
         }
     }
 
@@ -140,7 +143,7 @@ class ExpenseRepositoryImpl @Inject constructor(
         withContext(ioDispatcher) {
             transactions.forEach { txn ->
                 transactionDao.insert(txn.toEntity())
-                accountDao.adjustBalance(txn.account.id, -txn.amount)
+                accountDao.adjustBalance(txn.account.id, txn.amount)
             }
         }
     }
@@ -170,19 +173,25 @@ class ExpenseRepositoryImpl @Inject constructor(
         val weekRange = DateUtils.currentWeekRange()
         val monthlyTransactions = transactions.filter { it.date.isWithin(monthRange) }
         val weeklyTransactions = transactions.filter { it.date.isWithin(weekRange) }
-        val monthlyTotal = monthlyTransactions.sumOf { it.amount }
+        
+        // Total spent should be positive for display
+        val monthlyTotalSpent = abs(monthlyTransactions.filter { it.amount < 0 }.sumOf { it.amount })
+        
         val categoryBreakdown = monthlyTransactions
+            .filter { it.amount < 0 } // Only breakdown spending
             .groupBy { it.category }
             .map { (category, values) ->
-                CategoryBreakdown(category = category, total = values.sumOf { it.amount })
+                CategoryBreakdown(category = category, total = abs(values.sumOf { it.amount }))
             }
             .sortedByDescending { it.total }
+            
         val weeklyTrend = DateUtils.weekDays().map { day ->
             val total = weeklyTransactions
-                .filter { it.date.atZone(zoneId).dayOfWeek == day }
+                .filter { it.date.atZone(zoneId).dayOfWeek == day && it.amount < 0 }
                 .sumOf { it.amount }
-            WeeklySpendingPoint(day = day, amount = total)
+            WeeklySpendingPoint(day = day, amount = abs(total))
         }
+        
         val accountLookup = accounts.associateBy { it.id }
         val accountTotals = monthlyTransactions
             .groupBy { it.account }
@@ -194,12 +203,14 @@ class ExpenseRepositoryImpl @Inject constructor(
                     balance = balance
                 )
             }
-            .sortedByDescending { it.amount }
+            .sortedByDescending { abs(it.amount) }
+            
         val recent = transactions
             .sortedByDescending { it.date }
             .take(5)
+            
         return DashboardAnalytics(
-            monthlyTotal = monthlyTotal,
+            monthlyTotal = monthlyTotalSpent,
             categoryBreakdown = categoryBreakdown,
             weeklyTrend = weeklyTrend,
             recentTransactions = recent,
