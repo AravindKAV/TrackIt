@@ -41,6 +41,7 @@ data class TransactionFormState(
     val accountId: Long? = null,
     val isEdit: Boolean = false,
     val isSaving: Boolean = false,
+    val isCredit: Boolean = false,
     val errorMessage: String? = null
 )
 
@@ -94,7 +95,7 @@ class TransactionFormViewModel @Inject constructor(
             viewModelScope.launch {
                 observeTransactionUseCase(id).filterNotNull().first().also { transaction ->
                     _state.value = _state.value.copy(
-                        amount = transaction.amount.toString(),
+                        amount = transaction.amount.absoluteValue.toString(),
                         merchant = transaction.merchant,
                         category = transaction.category,
                         paymentMethod = transaction.paymentMethod,
@@ -102,7 +103,8 @@ class TransactionFormViewModel @Inject constructor(
                         notes = transaction.notes.orEmpty(),
                         accountId = transaction.account.id,
                         source = transaction.source,
-                        isEdit = true
+                        isEdit = true,
+                        isCredit = transaction.amount > 0
                     )
                 }
             }
@@ -137,6 +139,10 @@ class TransactionFormViewModel @Inject constructor(
         _state.update { it.copy(accountId = accountId) }
     }
 
+    fun updateTransactionType(isCredit: Boolean) {
+        _state.update { it.copy(isCredit = isCredit) }
+    }
+
     fun save() {
         viewModelScope.launch {
             val current = _state.value
@@ -154,9 +160,12 @@ class TransactionFormViewModel @Inject constructor(
                     eventsChannel.send(TransactionFormEvent.Error(message))
                     return@launch
                 }
+            
+            val finalAmount = current.amount.toDouble().let { if (current.isCredit) it else -it }
+            
             val transaction = Transaction(
                 id = transactionId ?: 0L,
-                amount = current.amount.toDouble(),
+                amount = finalAmount,
                 merchant = current.merchant.trim(),
                 category = current.category,
                 paymentMethod = current.paymentMethod,
@@ -191,3 +200,6 @@ class TransactionFormViewModel @Inject constructor(
         return null
     }
 }
+
+private val Double.absoluteValue: Double
+    get() = if (this < 0) -this else this

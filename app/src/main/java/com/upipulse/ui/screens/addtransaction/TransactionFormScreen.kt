@@ -33,6 +33,8 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -54,6 +56,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -107,13 +110,37 @@ fun TransactionFormScreen(
                 fontWeight = FontWeight.ExtraBold,
                 color = MaterialTheme.colorScheme.onSurface
             )
-            Text(
-                text = if (state.isEdit) "Update your spending details" else "Enter details for your new expense",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
 
-            Spacer(modifier = Modifier.height(24.dp))
+            // Transaction Type Toggle (Debit vs Credit)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                FilterChip(
+                    selected = !state.isCredit,
+                    onClick = { viewModel.updateTransactionType(false) },
+                    label = { Text("Debit (Spent)") },
+                    modifier = Modifier.weight(1f),
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.errorContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                )
+                FilterChip(
+                    selected = state.isCredit,
+                    onClick = { viewModel.updateTransactionType(true) },
+                    label = { Text("Credit (Income)") },
+                    modifier = Modifier.weight(1f),
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = Color(0xFF10B981).copy(alpha = 0.2f),
+                        selectedLabelColor = Color(0xFF059669)
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             ElevatedCard(
                 modifier = Modifier.fillMaxWidth(),
@@ -142,7 +169,7 @@ fun TransactionFormScreen(
                     FormTextField(
                         value = state.merchant,
                         onValueChange = viewModel::updateMerchant,
-                        label = "Merchant",
+                        label = if (state.isCredit) "From (Sender)" else "Merchant / To",
                         icon = Icons.Default.Storefront
                     )
 
@@ -164,7 +191,7 @@ fun TransactionFormScreen(
                         }
                     } else {
                         AccountDropdownField(
-                            label = "Select Bank Account",
+                            label = "Bank Account",
                             accounts = accounts,
                             selectedId = state.accountId,
                             onAccountSelected = viewModel::updateAccount
@@ -349,8 +376,8 @@ private fun AccountDropdownField(
                 DropdownMenuItem(
                     text = { 
                         Column {
-                            Text(account.name, fontWeight = FontWeight.Bold)
-                            Text(account.bankName, style = MaterialTheme.typography.bodySmall)
+                            Text(account.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(account.bankName, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     },
                     onClick = {
@@ -396,7 +423,7 @@ private fun DropdownField(
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEach { option ->
                 DropdownMenuItem(
-                    text = { Text(option) },
+                    text = { Text(option, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     onClick = {
                         onValueSelected(option)
                         expanded = false

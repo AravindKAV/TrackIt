@@ -20,7 +20,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -35,10 +38,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -119,30 +124,51 @@ private fun DashboardContent(
             
             if (analytics.categoryBreakdown.isNotEmpty()) {
                 item {
+                    val catGradient = Brush.linearGradient(
+                        listOf(
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f),
+                            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
+                        )
+                    )
                     ElevatedCard(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(24.dp),
-                        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        shape = RoundedCornerShape(28.dp),
+                        colors = CardDefaults.elevatedCardColors(containerColor = Color.Transparent)
                     ) {
-                        Column(modifier = Modifier.padding(20.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    "Category Distribution", 
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.TrendingUp,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                                )
+                        Box(modifier = Modifier.background(catGradient)) {
+                            // Decorative circle
+                            Box(
+                                modifier = Modifier
+                                    .size(150.dp)
+                                    .offset(x = 220.dp, y = (-40).dp)
+                                    .background(Color.White.copy(alpha = 0.1f), CircleShape)
+                            )
+                            
+                            Column(modifier = Modifier.padding(24.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Analytics, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text(
+                                            "Category Distribution", 
+                                            style = MaterialTheme.typography.titleLarge,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                    }
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.TrendingUp,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(20.dp))
+                                CategoryPieChart(data = analytics.categoryBreakdown, modifier = Modifier.fillMaxWidth())
                             }
-                            Spacer(modifier = Modifier.height(16.dp))
-                            CategoryPieChart(data = analytics.categoryBreakdown, modifier = Modifier.fillMaxWidth())
                         }
                     }
                 }
@@ -150,27 +176,44 @@ private fun DashboardContent(
 
             if (analytics.weeklyTrend.isNotEmpty()) {
                 item {
+                    val weekGradient = Brush.linearGradient(
+                        listOf(
+                            MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.8f),
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                        )
+                    )
                     ElevatedCard(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(24.dp),
-                        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        shape = RoundedCornerShape(28.dp),
+                        colors = CardDefaults.elevatedCardColors(containerColor = Color.Transparent)
                     ) {
-                        Column(modifier = Modifier.padding(20.dp)) {
-                            Text(
-                                "Weekly Spending", 
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
+                        Box(modifier = Modifier.background(weekGradient)) {
+                            // Decorative circle
+                            Box(
+                                modifier = Modifier
+                                    .size(120.dp)
+                                    .offset(x = (-40).dp, y = 160.dp)
+                                    .background(Color.White.copy(alpha = 0.1f), CircleShape)
                             )
-                            Text(
-                                text = "Peak spending on ${peakDay?.day?.name ?: "—"}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(20.dp))
-                            WeeklySpendingBarChart(
-                                data = analytics.weeklyTrend, 
-                                modifier = Modifier.fillMaxWidth().height(200.dp)
-                            )
+                            
+                            Column(modifier = Modifier.padding(24.dp)) {
+                                Text(
+                                    "Weekly Spending", 
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                                Text(
+                                    text = "Peak spending on ${peakDay?.day?.name ?: "—"}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                                )
+                                Spacer(modifier = Modifier.height(24.dp))
+                                WeeklySpendingBarChart(
+                                    data = analytics.weeklyTrend, 
+                                    modifier = Modifier.fillMaxWidth().height(200.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -193,8 +236,36 @@ private fun DashboardContent(
                     )
                 }
             }
-            items(analytics.recentTransactions) { transaction ->
-                TransactionRow(transaction = transaction, modifier = Modifier.fillMaxWidth())
+            
+            item {
+                val recentGradient = Brush.verticalGradient(
+                    listOf(
+                        MaterialTheme.colorScheme.surface,
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.05f)
+                    )
+                )
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = CardDefaults.elevatedCardColors(containerColor = Color.Transparent)
+                ) {
+                    Column(
+                        modifier = Modifier.background(recentGradient).padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Icon(Icons.Default.History, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Latest Records", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        }
+                        analytics.recentTransactions.forEach { transaction ->
+                            TransactionRow(transaction = transaction, modifier = Modifier.fillMaxWidth())
+                        }
+                    }
+                }
             }
         }
         item { Spacer(modifier = Modifier.height(32.dp)) }
@@ -334,65 +405,76 @@ private fun DashboardHeroCard(
 @Composable
 private fun AccountInsightCard(spending: AccountSpending) {
     val accent = accountAccentColor(spending.account.id)
+    val cardGradient = Brush.horizontalGradient(
+        colors = listOf(
+            accent.copy(alpha = 0.9f),
+            accent.copy(alpha = 0.6f)
+        )
+    )
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+        colors = CardDefaults.elevatedCardColors(containerColor = Color.Transparent)
     ) {
-        Row(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
+        Box(modifier = Modifier.background(cardGradient)) {
+            Row(
                 modifier = Modifier
-                    .size(48.dp)
-                    .background(accent.copy(alpha = 0.15f), CircleShape),
-                contentAlignment = Alignment.Center
+                    .padding(16.dp)
+                    .fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = spending.account.name.take(1).uppercase(),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = accent,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            
-            Column(
-                modifier = Modifier
-                    .padding(horizontal = 16.dp)
-                    .weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                Text(
-                    spending.account.name, 
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1
-                )
-                Text(
-                    text = "Balance: ${formatInr(spending.balance)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1
-                )
-            }
-            
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = formatInr(spending.amount),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.error,
-                    textAlign = TextAlign.End
-                )
-                Text(
-                    text = "Spent",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.End
-                )
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(Color.White.copy(alpha = 0.2f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = spending.account.name.take(1).uppercase(),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                
+                Column(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        spending.account.name, 
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = Color.White
+                    )
+                    Text(
+                        text = "Balance: ${formatInr(spending.balance)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.8f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = formatInr(spending.amount),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (spending.amount > 0) Color(0xFFD1FAE5) else Color(0xFFFFE4E6),
+                        textAlign = TextAlign.End
+                    )
+                    Text(
+                        text = if (spending.amount > 0) "Earned" else "Spent",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.7f),
+                        textAlign = TextAlign.End
+                    )
+                }
             }
         }
     }
@@ -434,7 +516,8 @@ private fun QuickStatChip(label: String, value: String, modifier: Modifier = Mod
                 style = MaterialTheme.typography.bodyMedium, 
                 color = Color.White,
                 fontWeight = FontWeight.ExtraBold,
-                maxLines = 1
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
