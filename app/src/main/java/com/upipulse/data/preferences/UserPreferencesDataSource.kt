@@ -44,8 +44,8 @@ class UserPreferencesDataSource @Inject constructor(
         }
         .map { prefs ->
             TrackingSettings(
-                smsDetectionEnabled = prefs[Keys.SMS] ?: true,
-                notificationDetectionEnabled = prefs[Keys.NOTIFICATIONS] ?: true,
+                smsDetectionEnabled = prefs[Keys.SMS] ?: false,
+                notificationDetectionEnabled = prefs[Keys.NOTIFICATIONS] ?: false,
                 onboardingComplete = prefs[Keys.ONBOARDING] ?: false,
                 sampleDataSeeded = prefs[Keys.SAMPLE] ?: false,
                 theme = try {

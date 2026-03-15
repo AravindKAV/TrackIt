@@ -1,5 +1,7 @@
 package com.upipulse.ui.screens.onboarding
 
+import android.content.Context
+import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.upipulse.domain.usecase.CompleteOnboardingUseCase
@@ -7,6 +9,7 @@ import com.upipulse.domain.usecase.ObserveTrackingSettingsUseCase
 import com.upipulse.domain.usecase.UpdateNotificationDetectionUseCase
 import com.upipulse.domain.usecase.UpdateSmsDetectionUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,11 +25,13 @@ sealed interface OnboardingEvent {
 
 data class OnboardingUiState(
     val smsEnabled: Boolean = false,
-    val notificationEnabled: Boolean = false
+    val notificationEnabled: Boolean = false,
+    val systemNotificationListenerEnabled: Boolean = false
 )
 
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     observeTrackingSettingsUseCase: ObserveTrackingSettingsUseCase,
     private val updateSmsDetectionUseCase: UpdateSmsDetectionUseCase,
     private val updateNotificationDetectionUseCase: UpdateNotificationDetectionUseCase,
@@ -42,12 +47,25 @@ class OnboardingViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             observeTrackingSettingsUseCase().collectLatest { settings ->
-                _uiState.value = OnboardingUiState(
+                _uiState.value = _uiState.value.copy(
                     smsEnabled = settings.smsDetectionEnabled,
-                    notificationEnabled = settings.notificationDetectionEnabled
+                    notificationEnabled = settings.notificationDetectionEnabled,
+                    systemNotificationListenerEnabled = isNotificationListenerEnabled()
                 )
             }
         }
+    }
+
+    fun refreshSystemStates() {
+        _uiState.value = _uiState.value.copy(
+            systemNotificationListenerEnabled = isNotificationListenerEnabled()
+        )
+    }
+
+    private fun isNotificationListenerEnabled(): Boolean {
+        val packageName = context.packageName
+        val enabledPackages = NotificationManagerCompat.getEnabledListenerPackages(context)
+        return enabledPackages.contains(packageName)
     }
 
     fun updateSmsDetection(enabled: Boolean) {
