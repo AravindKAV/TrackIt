@@ -3,15 +3,13 @@ package com.upipulse.ui.navigation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.navigation.NavDestination
-import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 
-class UpiPulseAppState(val navController: NavHostController) {
+class TrackItAppState(val navController: NavHostController) {
     private val bottomDestinations = BottomDestination.values().map { it.route }
 
     val currentDestination: NavDestination?
@@ -34,6 +32,6 @@ class UpiPulseAppState(val navController: NavHostController) {
 }
 
 @Composable
-fun rememberUpiPulseAppState(
+fun rememberTrackItAppState(
     navController: NavHostController = rememberNavController()
-): UpiPulseAppState = remember(navController) { UpiPulseAppState(navController) }
+): TrackItAppState = remember(navController) { TrackItAppState(navController) }

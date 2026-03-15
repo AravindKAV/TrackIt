@@ -41,7 +41,7 @@ private val LightColors = lightColorScheme(
 )
 
 @Composable
-fun UpiPulseTheme(
+fun TrackItTheme(
     appTheme: AppTheme = AppTheme.SYSTEM,
     content: @Composable () -> Unit
 ) {

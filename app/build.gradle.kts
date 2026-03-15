@@ -10,7 +10,7 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.upipulse"
+        applicationId = "com.upipulse" // Keeping it consistent with the existing package structure to prevent crashes
         minSdk = 26
         targetSdk = 34
         versionCode = 1

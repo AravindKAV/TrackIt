@@ -10,7 +10,7 @@
         android:name=".UpiPulseApp"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="UPI Pulse"
+        android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.UpiPulse">
@@ -36,7 +36,7 @@
 
         <service
             android:name=".service.notification.UpiNotificationListenerService"
-            android:label="UPI Pulse"
+            android:label="@string/app_name"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
             android:exported="true">
             <intent-filter>

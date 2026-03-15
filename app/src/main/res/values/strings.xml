@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">UPI Pulse</string>
+    <string name="app_name">TrackIt</string>
     <string name="dashboard_title">Dashboard</string>
     <string name="timeline_title">Timeline</string>
     <string name="merchant_title">Merchant</string>

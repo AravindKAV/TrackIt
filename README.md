@@ -1,6 +1,6 @@
-﻿# UPI Pulse – Expense Tracker
+﻿# TrackIt – Expense Tracker
 
-UPI Pulse is a modern, offline-first Android expense tracker built with Jetpack Compose and Hilt. It combines manual entry with automatic SMS/notification parsing, tracks multiple bank accounts, and renders a fintech-style dashboard with live analytics.
+TrackIt is a modern, offline-first Android expense tracker built with Jetpack Compose and Hilt. It combines manual entry with automatic SMS/notification parsing, tracks multiple bank accounts, and renders a fintech-style dashboard with live analytics.
 
 ## Feature highlights
 - **Guided onboarding** – Splash + onboarding flow explains core features and walks through SMS/notification permissions.
@@ -34,7 +34,7 @@ SMS/Notifications -> Parser -> ExpenseRepository -> Room (TransactionDao/Account
 2. **Sync & build** – `./gradlew :app:assembleDebug` (or press *Sync Project* in Android Studio).
 3. **Install** – `adb install app/build/outputs/apk/debug/app-debug.apk` or simply hit *Run*.
 4. **First launch** – Splash seeds sample accounts + categories, then onboarding walks through feature education and permission prompts. 
-5. **Grant permissions** – Approve SMS + POST_NOTIFICATIONS when prompted, then open the notification-listener settings screen to allow "UPI Pulse".
+5. **Grant permissions** – Approve SMS + POST_NOTIFICATIONS when prompted, then open the notification-listener settings screen to allow "TrackIt".
 6. **Populate Data** – Use the **Reset Sample Data** option in Settings to quickly preview the Dashboard and History features with rich dummy data.
 
 ## Dashboard analytics
@@ -62,7 +62,7 @@ SMS/Notifications -> Parser -> ExpenseRepository -> Room (TransactionDao/Account
 
 ## Security & Privacy
 - **App Lock**: Optional Biometric/PIN lock can be enabled in Settings to secure the app launch.
-- **Privacy First**: All computation and data storage happen strictly on-device. UPI Pulse never requests banking credentials or sends your data off-device.
+- **Privacy First**: All computation and data storage happen strictly on-device. TrackIt never requests banking credentials or sends your data off-device.
 
 ## Screenshots
 - Dashboard – Modern analytics with glassmorphism effects.

@@ -48,7 +48,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.upipulse.ui.navigation.BottomDestination
 import com.upipulse.ui.navigation.Destinations
-import com.upipulse.ui.navigation.rememberUpiPulseAppState
+import com.upipulse.ui.navigation.rememberTrackItAppState
 import com.upipulse.ui.screens.addtransaction.TransactionFormScreen
 import com.upipulse.ui.screens.dashboard.DashboardScreen
 import com.upipulse.ui.screens.onboarding.OnboardingScreen
@@ -60,8 +60,8 @@ import com.upipulse.ui.screens.history.HistoryScreen
 import kotlinx.coroutines.launch
 
 @Composable
-fun UpiPulseAppRoot() {
-    val appState = rememberUpiPulseAppState()
+fun TrackItAppRoot() {
+    val appState = rememberTrackItAppState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -118,7 +118,11 @@ fun UpiPulseAppRoot() {
         NavHost(
             navController = appState.navController,
             startDestination = Destinations.SPLASH,
-            modifier = Modifier.padding(padding)
+            modifier = Modifier.padding(padding),
+            enterTransition = { fadeIn() + slideInHorizontally { it / 2 } },
+            exitTransition = { fadeOut() + slideOutHorizontally { -it / 2 } },
+            popEnterTransition = { fadeIn() + slideInHorizontally { -it / 2 } },
+            popExitTransition = { fadeOut() + slideOutHorizontally { it / 2 } }
         ) {
             composable(Destinations.SPLASH) {
                 SplashScreen(onEvent = { event ->
@@ -196,7 +200,7 @@ fun UpiPulseAppRoot() {
 }
 
 @Composable
-private fun RowScope.NavigationItem(appState: com.upipulse.ui.navigation.UpiPulseAppState, destination: BottomDestination) {
+private fun RowScope.NavigationItem(appState: com.upipulse.ui.navigation.TrackItAppState, destination: BottomDestination) {
     val selected = appState.currentDestination?.route == destination.route
     NavigationBarItem(
         selected = selected,

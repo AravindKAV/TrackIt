@@ -33,7 +33,6 @@ import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
@@ -100,7 +99,7 @@ fun OnboardingScreen(
             item {
                 Column(modifier = Modifier.padding(top = 32.dp, bottom = 16.dp)) {
                     Text(
-                        text = "UPI Pulse",
+                        text = "TrackIt",
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold,

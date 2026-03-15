@@ -28,7 +28,7 @@ fun SplashScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(text = "UPI Pulse", style = MaterialTheme.typography.displaySmall)
+        Text(text = "TrackIt", style = MaterialTheme.typography.displaySmall)
         CircularProgressIndicator(modifier = Modifier.padding(top = 24.dp))
     }
 }

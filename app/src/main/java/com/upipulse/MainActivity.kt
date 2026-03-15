@@ -15,8 +15,8 @@ import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import com.upipulse.domain.usecase.ObserveTrackingSettingsUseCase
-import com.upipulse.ui.UpiPulseAppRoot
-import com.upipulse.ui.theme.UpiPulseTheme
+import com.upipulse.ui.TrackItAppRoot
+import com.upipulse.ui.theme.TrackItTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -39,9 +39,9 @@ class MainActivity : FragmentActivity() {
             var isUnlocked by remember { mutableStateOf(!isLockEnabled) }
             val currentSettings by observeTrackingSettingsUseCase().collectAsState(initial = settings)
             
-            UpiPulseTheme(appTheme = currentSettings?.theme ?: com.upipulse.domain.model.AppTheme.SYSTEM) {
+            TrackItTheme(appTheme = currentSettings?.theme ?: com.upipulse.domain.model.AppTheme.SYSTEM) {
                 if (isUnlocked) {
-                    UpiPulseAppRoot()
+                    TrackItAppRoot()
                 } else {
                     // Blank screen while authenticating
                 }
@@ -77,7 +77,7 @@ class MainActivity : FragmentActivity() {
             })
 
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("UPI Pulse Lock")
+            .setTitle("TrackIt Lock")
             .setSubtitle("Unlock to manage your expenses")
             .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL)
             .build()

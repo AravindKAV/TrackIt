@@ -17,9 +17,22 @@ class SeedSampleDataUseCase @Inject constructor(
         val settings = preferences.settings.first()
         if (settings.sampleDataSeeded && !force) return
 
-        if (repository.observeAccounts().first().isEmpty()) {
-            SampleDataSource.accounts().forEach { repository.upsertAccount(it) }
+        if (force) {
+            repository.clearTransactions()
         }
+
+        val accounts = if (force || repository.observeAccounts().first().isEmpty()) {
+            SampleDataSource.accounts().map { repository.upsertAccount(it) }
+        } else {
+            repository.observeAccounts().first()
+        }
+        
+        // Insert sample transactions if we are forcing or if there are no transactions
+        if (force || repository.observeTransactions().first().isEmpty()) {
+            val transactions = SampleDataSource.sampleTransactions(accounts)
+            repository.insertMany(transactions)
+        }
+
         preferences.setSampleSeeded(true)
     }
 }
