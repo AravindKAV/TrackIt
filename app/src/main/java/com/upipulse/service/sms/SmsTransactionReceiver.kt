@@ -37,8 +37,22 @@ class SmsTransactionReceiver : BroadcastReceiver() {
             if (settings.smsDetectionEnabled) {
                 val transaction = parser.parse(body, TransactionSource.SMS, timestamp)
                 if (transaction != null) {
-                    val account = getDefaultAccountUseCase().toSummary()
-                    repository.insert(transaction.copy(account = account))
+                    val accounts = repository.observeAccounts().first()
+                    // Extract suffix from the hidden metadata in notes if present
+                    val suffixMatch = Regex("""Suffix:(\d{4})\|""").find(transaction.notes ?: "")
+                    val extractedSuffix = suffixMatch?.groupValues?.getOrNull(1)
+                    
+                    val targetAccount = if (extractedSuffix != null) {
+                        accounts.find { it.numberSuffix == extractedSuffix } ?: getDefaultAccountUseCase()
+                    } else {
+                        getDefaultAccountUseCase()
+                    }
+                    
+                    repository.insert(transaction.copy(
+                        account = targetAccount.toSummary(),
+                        // Clean up notes to remove suffix metadata
+                        notes = transaction.notes?.substringAfter("|")?.ifBlank { null }
+                    ))
                 }
             }
             pendingResult.finish()

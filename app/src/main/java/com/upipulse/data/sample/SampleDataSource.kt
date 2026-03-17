@@ -110,6 +110,7 @@ object SampleDataSource {
         val accountPool = accounts()
         val transactions = sampleTransactions(accountPool)
         val monthlyTotal = transactions.filter { it.amount < 0 }.sumOf { it.amount }
+        val monthlyIncome = transactions.filter { it.amount > 0 }.sumOf { it.amount }
         val categoryBreakdown = transactions.filter { it.amount < 0 }
             .groupBy { it.category }
             .map { (category, values) -> CategoryBreakdown(category, values.sumOf { it.amount }.absoluteValue) }
@@ -133,6 +134,7 @@ object SampleDataSource {
         val recent = transactions.sortedByDescending { it.date }.take(5)
         return DashboardAnalytics(
             monthlyTotal = monthlyTotal.absoluteValue,
+            monthlyIncome = monthlyIncome,
             categoryBreakdown = categoryBreakdown,
             weeklyTrend = weeklyTrend,
             recentTransactions = recent,

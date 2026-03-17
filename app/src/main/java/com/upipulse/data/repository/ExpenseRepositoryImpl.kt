@@ -103,8 +103,6 @@ class ExpenseRepositoryImpl @Inject constructor(
         if (existing != null) {
             return@withContext existing.toDomain()
         }
-        // If no account exists, we should probably not auto-create a "Primary UPI" one anymore
-        // given the user's request for a clean start.
         throw IllegalStateException("No accounts found. Please add one in Settings.")
     }
 
@@ -162,11 +160,11 @@ class ExpenseRepositoryImpl @Inject constructor(
         val monthlyTransactions = transactions.filter { it.date.isWithin(monthRange) }
         val weeklyTransactions = transactions.filter { it.date.isWithin(weekRange) }
         
-        // Total spent should be positive for display
         val monthlyTotalSpent = abs(monthlyTransactions.filter { it.amount < 0 }.sumOf { it.amount })
+        val monthlyTotalEarned = monthlyTransactions.filter { it.amount > 0 }.sumOf { it.amount }
         
         val categoryBreakdown = monthlyTransactions
-            .filter { it.amount < 0 } // Only breakdown spending
+            .filter { it.amount < 0 }
             .groupBy { it.category }
             .map { (category, values) ->
                 CategoryBreakdown(category = category, total = abs(values.sumOf { it.amount }))
@@ -199,6 +197,7 @@ class ExpenseRepositoryImpl @Inject constructor(
             
         return DashboardAnalytics(
             monthlyTotal = monthlyTotalSpent,
+            monthlyIncome = monthlyTotalEarned,
             categoryBreakdown = categoryBreakdown,
             weeklyTrend = weeklyTrend,
             recentTransactions = recent,

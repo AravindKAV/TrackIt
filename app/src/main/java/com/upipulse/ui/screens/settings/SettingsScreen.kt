@@ -76,6 +76,7 @@ import kotlin.math.absoluteValue
 @Composable
 fun SettingsScreen(
     onMessage: (String) -> Unit,
+    onNavigateToAccountTransactions: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
@@ -188,7 +189,8 @@ fun SettingsScreen(
                     state.accounts.forEach { account ->
                         AccountRow(
                             account = account, 
-                            onDelete = { viewModel.deleteAccount(account.id) }
+                            onDelete = { viewModel.deleteAccount(account.id) },
+                            onClick = { onNavigateToAccountTransactions(account.id) }
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                     }
@@ -230,7 +232,7 @@ fun SettingsScreen(
             ElevatedCard(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+                colors = CardDefaults.elevatedCardColors(containerColor = Color.Transparent)
             ) {
                 Box(modifier = Modifier.background(privacyGradient).padding(16.dp)) {
                     Row(verticalAlignment = Alignment.Top) {
@@ -464,7 +466,11 @@ private fun SettingToggle(
 }
 
 @Composable
-private fun AccountRow(account: com.upipulse.domain.model.Account, onDelete: () -> Unit) {
+private fun AccountRow(
+    account: com.upipulse.domain.model.Account, 
+    onDelete: () -> Unit,
+    onClick: () -> Unit
+) {
     val accent = accountAccentColor(account.id)
     val accountGradient = Brush.horizontalGradient(
         colors = listOf(
@@ -473,7 +479,9 @@ private fun AccountRow(account: com.upipulse.domain.model.Account, onDelete: () 
         )
     )
     ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {

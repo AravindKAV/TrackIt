@@ -118,11 +118,7 @@ fun TrackItAppRoot() {
         NavHost(
             navController = appState.navController,
             startDestination = Destinations.SPLASH,
-            modifier = Modifier.padding(padding),
-            enterTransition = { fadeIn() + slideInHorizontally { it / 2 } },
-            exitTransition = { fadeOut() + slideOutHorizontally { -it / 2 } },
-            popEnterTransition = { fadeIn() + slideInHorizontally { -it / 2 } },
-            popExitTransition = { fadeOut() + slideOutHorizontally { it / 2 } }
+            modifier = Modifier.padding(padding)
         ) {
             composable(Destinations.SPLASH) {
                 SplashScreen(onEvent = { event ->
@@ -149,6 +145,18 @@ fun TrackItAppRoot() {
             composable(Destinations.TRANSACTIONS) {
                 TransactionsScreen(
                     onEditTransaction = { id ->
+                        appState.navController.navigate("${Destinations.TRANSACTIONS}/filter/account/$id")
+                    },
+                    onMessage = { message -> scope.launch { snackbarHostState.showSnackbar(message) } }
+                )
+            }
+            // New route for filtered transactions
+            composable(
+                route = "${Destinations.TRANSACTIONS}/filter/account/{accountId}",
+                arguments = listOf(navArgument("accountId") { type = NavType.LongType })
+            ) {
+                TransactionsScreen(
+                    onEditTransaction = { id ->
                         appState.navController.navigate("${Destinations.EDIT_TRANSACTION}/$id")
                     },
                     onMessage = { message -> scope.launch { snackbarHostState.showSnackbar(message) } }
@@ -160,7 +168,12 @@ fun TrackItAppRoot() {
                 })
             }
             composable(Destinations.SETTINGS) {
-                SettingsScreen(onMessage = { message -> scope.launch { snackbarHostState.showSnackbar(message) } })
+                SettingsScreen(
+                    onMessage = { message -> scope.launch { snackbarHostState.showSnackbar(message) } },
+                    onNavigateToAccountTransactions = { accountId ->
+                        appState.navController.navigate("${Destinations.TRANSACTIONS}/filter/account/$accountId")
+                    }
+                )
             }
             composable(
                 route = Destinations.ADD_TRANSACTION,

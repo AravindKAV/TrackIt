@@ -1,5 +1,6 @@
 package com.upipulse.ui.screens.transactions
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.upipulse.domain.model.Transaction
@@ -28,17 +29,21 @@ data class TransactionsUiState(
     val displayedTransactions: List<Transaction> = emptyList(),
     val categories: List<String> = listOf("All"),
     val selectedCategory: String = "All",
+    val selectedAccountId: Long? = null,
     val isLoading: Boolean = true
 )
 
 @HiltViewModel
 class TransactionsViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
     observeTransactionsUseCase: ObserveTransactionsUseCase,
     observeCategoriesUseCase: ObserveCategoriesUseCase,
     private val deleteTransactionUseCase: DeleteTransactionUseCase
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(TransactionsUiState())
+    private val initialAccountId: Long? = savedStateHandle.get<Long>("accountId")?.takeIf { it > 0 }
+
+    private val _uiState = MutableStateFlow(TransactionsUiState(selectedAccountId = initialAccountId))
     val uiState: StateFlow<TransactionsUiState> = _uiState.asStateFlow()
 
     private val eventsChannel = Channel<TransactionsEvent>(Channel.BUFFERED)
@@ -51,10 +56,11 @@ class TransactionsViewModel @Inject constructor(
                 observeCategoriesUseCase()
             ) { transactions, categories ->
                 val sorted = transactions.sortedByDescending { it.date }
-                // Use distinct() to prevent duplicate categories in the filter list
                 val categoryNames = (listOf("All") + categories.map { it.name }).distinct()
                 val currentFilter = _uiState.value.selectedCategory
-                val filtered = filterTransactions(sorted, currentFilter)
+                val currentAccountId = _uiState.value.selectedAccountId
+                
+                val filtered = filterTransactions(sorted, currentFilter, currentAccountId)
                 _uiState.value.copy(
                     allTransactions = sorted,
                     displayedTransactions = filtered,
@@ -69,8 +75,15 @@ class TransactionsViewModel @Inject constructor(
 
     fun updateFilter(category: String) {
         _uiState.update { state ->
-            val filtered = filterTransactions(state.allTransactions, category)
+            val filtered = filterTransactions(state.allTransactions, category, state.selectedAccountId)
             state.copy(selectedCategory = category, displayedTransactions = filtered)
+        }
+    }
+
+    fun clearAccountFilter() {
+        _uiState.update { state ->
+            val filtered = filterTransactions(state.allTransactions, state.selectedCategory, null)
+            state.copy(selectedAccountId = null, displayedTransactions = filtered)
         }
     }
 
@@ -82,6 +95,15 @@ class TransactionsViewModel @Inject constructor(
         }
     }
 
-    private fun filterTransactions(transactions: List<Transaction>, category: String): List<Transaction> =
-        if (category == "All" || category.isBlank()) transactions else transactions.filter { it.category == category }
+    private fun filterTransactions(
+        transactions: List<Transaction>, 
+        category: String, 
+        accountId: Long?
+    ): List<Transaction> {
+        return transactions.filter { txn ->
+            val matchesCategory = if (category == "All" || category.isBlank()) true else txn.category == category
+            val matchesAccount = if (accountId == null) true else txn.account.id == accountId
+            matchesCategory && matchesAccount
+        }
+    }
 }

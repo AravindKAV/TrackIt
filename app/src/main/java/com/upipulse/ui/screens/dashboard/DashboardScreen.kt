@@ -96,7 +96,8 @@ private fun DashboardContent(
     ) {
         item {
             DashboardHeroCard(
-                total = analytics.monthlyTotal,
+                totalSpent = analytics.monthlyTotal,
+                totalIncome = analytics.monthlyIncome,
                 isDemo = isDemo,
                 topCategory = topCategory?.category,
                 peakDayLabel = peakDay?.day?.name
@@ -216,60 +217,60 @@ private fun DashboardContent(
 
         if (analytics.recentTransactions.isNotEmpty()) {
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "Recent Activity", 
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                        Text(
-                            "View All",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                    
-                    val recentGradient = Brush.linearGradient(
-                        listOf(
-                            Color(0xFF4F46E5), // Indigo 600
-                            Color(0xFF6366F1)  // Indigo 500
-                        )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Recent Activity", 
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.ExtraBold
                     )
+                    Text(
+                        "View All",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+            
+            item {
+                val recentGradient = Brush.linearGradient(
+                    listOf(
+                        Color(0xFF4F46E5), // Indigo 600
+                        Color(0xFF6366F1)  // Indigo 500
+                    )
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(elevation = 4.dp, shape = RoundedCornerShape(28.dp))
+                        .background(recentGradient, RoundedCornerShape(28.dp))
+                        .clip(RoundedCornerShape(28.dp))
+                ) {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .shadow(elevation = 4.dp, shape = RoundedCornerShape(28.dp))
-                            .background(recentGradient, RoundedCornerShape(28.dp))
-                            .clip(RoundedCornerShape(28.dp))
+                            .size(100.dp)
+                            .offset(x = 280.dp, y = (-20).dp)
+                            .background(Color.White.copy(alpha = 0.1f), CircleShape)
+                    )
+                    
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(100.dp)
-                                .offset(x = 280.dp, y = (-20).dp)
-                                .background(Color.White.copy(alpha = 0.1f), CircleShape)
-                        )
-                        
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 8.dp)
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 8.dp)
-                            ) {
-                                Icon(Icons.Default.History, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Latest Records", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Color.White)
-                            }
-                            analytics.recentTransactions.forEach { transaction ->
-                                TransactionRow(transaction = transaction, modifier = Modifier.fillMaxWidth())
-                            }
+                            Icon(Icons.Default.History, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Latest Records", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                        analytics.recentTransactions.forEach { transaction ->
+                            TransactionRow(transaction = transaction, modifier = Modifier.fillMaxWidth())
                         }
                     }
                 }
@@ -292,7 +293,8 @@ private fun LoadingState(modifier: Modifier) {
 
 @Composable
 private fun DashboardHeroCard(
-    total: Double,
+    totalSpent: Double,
+    totalIncome: Double,
     isDemo: Boolean,
     topCategory: String?,
     peakDayLabel: String?
@@ -337,35 +339,57 @@ private fun DashboardHeroCard(
                     .padding(24.dp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                Column {
-                    if (isDemo) {
-                        Surface(
-                            color = Color.White.copy(alpha = 0.2f),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Text(
-                                text = "DEMO MODE",
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
-                            )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        if (isDemo) {
+                            Surface(
+                                color = Color.White.copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = "DEMO MODE",
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "Total Spent", 
+                            style = MaterialTheme.typography.labelLarge, 
+                            color = Color.White.copy(alpha = 0.8f)
+                        )
+                        Text(
+                            formatInr(totalSpent), 
+                            style = MaterialTheme.typography.headlineLarge.copy(
+                                fontWeight = FontWeight.Black,
+                                fontSize = 32.sp
+                            ), 
+                            color = Color.White
+                        )
                     }
-                    Text(
-                        "Total Spent", 
-                        style = MaterialTheme.typography.labelLarge, 
-                        color = Color.White.copy(alpha = 0.8f)
-                    )
-                    Text(
-                        formatInr(total), 
-                        style = MaterialTheme.typography.headlineLarge.copy(
-                            fontWeight = FontWeight.Black,
-                            fontSize = 36.sp
-                        ), 
-                        color = Color.White
-                    )
+                    
+                    Column(horizontalAlignment = Alignment.End) {
+                        Spacer(modifier = Modifier.height(if (isDemo) 32.dp else 0.dp))
+                        Text(
+                            "Total Income", 
+                            style = MaterialTheme.typography.labelLarge, 
+                            color = Color.White.copy(alpha = 0.8f)
+                        )
+                        Text(
+                            formatInr(totalIncome), 
+                            style = MaterialTheme.typography.headlineSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 24.sp
+                            ), 
+                            color = Color(0xFFD1FAE5)
+                        )
+                    }
                 }
 
                 Row(
@@ -515,14 +539,14 @@ private fun QuickStatChip(label: String, value: String, modifier: Modifier = Mod
     }
 }
 
-private val AccentPalette = listOf(
-    Color(0xFF6366F1), // Indigo
-    Color(0xFF0EA5E9), // Sky
-    Color(0xFF10B981), // Emerald
-    Color(0xFFF59E0B), // Amber
-    Color(0xFFEF4444)  // Red
-)
-
-private fun accountAccentColor(id: Long): Color =
-    if (AccentPalette.isEmpty()) Color(0xFF6366F1)
+private fun accountAccentColor(id: Long): Color {
+    val AccentPalette = listOf(
+        Color(0xFF6366F1), // Indigo
+        Color(0xFF0EA5E9), // Sky
+        Color(0xFF10B981), // Emerald
+        Color(0xFFF59E0B), // Amber
+        Color(0xFFEF4444)  // Red
+    )
+    return if (AccentPalette.isEmpty()) Color(0xFF6366F1)
     else AccentPalette[(id.toInt().absoluteValue) % AccentPalette.size]
+}
