@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -32,7 +33,9 @@ import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Lock
@@ -46,6 +49,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -62,6 +67,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -89,6 +95,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.upipulse.domain.model.AppTheme
 import com.upipulse.domain.model.CategoryType
 import com.upipulse.util.formatInr
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import kotlin.math.absoluteValue
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -105,6 +115,7 @@ fun SettingsScreen(
     var showCategoryDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
+    var showExportDialog by remember { mutableStateOf(false) }
     var categoryDropdownExpanded by remember { mutableStateOf(false) }
 
     val smsLauncher = rememberLauncherForActivityResult(
@@ -118,9 +129,23 @@ fun SettingsScreen(
         }
     }
 
+    var selectedStartDate by remember { mutableStateOf(LocalDate.now().minusMonths(1)) }
+    var selectedEndDate by remember { mutableStateOf(LocalDate.now()) }
+
+    val createDocumentLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
+        uri?.let {
+            viewModel.exportTransactions(context, selectedStartDate, selectedEndDate, it)
+        }
+    }
+
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
-            if (event is SettingsEvent.Message) onMessage(event.text)
+            when (event) {
+                is SettingsEvent.Message -> onMessage(event.text)
+                is SettingsEvent.ExportReady -> { /* handled via launcher */ }
+            }
         }
     }
 
@@ -303,7 +328,6 @@ fun SettingsScreen(
                                 onClick = { categoryDropdownExpanded = false }
                             )
                         } else {
-                            // Filter categories to remove duplicates by name
                             val uniqueCategories = state.categories.distinctBy { it.name }
                             val debitCategories = uniqueCategories.filter { it.type == CategoryType.DEBIT || it.type == CategoryType.BOTH }
                             val creditCategories = uniqueCategories.filter { it.type == CategoryType.CREDIT || it.type == CategoryType.BOTH }
@@ -350,7 +374,26 @@ fun SettingsScreen(
             SettingsSection(title = "Data Management") {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Default.Download, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Export to CSV", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text("Download your transaction history.", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    Button(
+                        onClick = { showExportDialog = true }, 
+                        enabled = !state.isExporting,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(if (state.isExporting) "Exporting..." else "Export Data")
+                    }
+                    
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text("Reset All Data", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
@@ -407,6 +450,21 @@ fun SettingsScreen(
         item { Spacer(modifier = Modifier.height(32.dp)) }
     }
 
+    if (showExportDialog) {
+        ExportRangeDialog(
+            initialStartDate = selectedStartDate,
+            initialEndDate = selectedEndDate,
+            onDismiss = { showExportDialog = false },
+            onExport = { start, end ->
+                selectedStartDate = start
+                selectedEndDate = end
+                showExportDialog = false
+                val fileName = "TrackIt_Export_${LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE)}.csv"
+                createDocumentLauncher.launch(fileName)
+            }
+        )
+    }
+
     if (showResetDialog) {
         AlertDialog(
             onDismissRequest = { showResetDialog = false },
@@ -455,6 +513,103 @@ fun SettingsScreen(
                 showCategoryDialog = false
             }
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ExportRangeDialog(
+    initialStartDate: LocalDate,
+    initialEndDate: LocalDate,
+    onDismiss: () -> Unit,
+    onExport: (LocalDate, LocalDate) -> Unit
+) {
+    var startDate by remember { mutableStateOf(initialStartDate) }
+    var endDate by remember { mutableStateOf(initialEndDate) }
+    var showStartDatePicker by remember { mutableStateOf(false) }
+    var showEndDatePicker by remember { mutableStateOf(false) }
+    val dateFormatter = DateTimeFormatter.ofPattern("dd MMM yyyy")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Export Range", fontWeight = FontWeight.Bold) },
+        confirmButton = {
+            Button(onClick = { onExport(startDate, endDate) }) {
+                Text("Confirm Export")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(top = 8.dp)) {
+                Text("Select the period for transaction export:", style = MaterialTheme.typography.bodyMedium)
+                
+                OutlinedTextField(
+                    value = startDate.format(dateFormatter),
+                    onValueChange = {},
+                    label = { Text("From") },
+                    readOnly = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) },
+                    trailingIcon = {
+                        TextButton(onClick = { showStartDatePicker = true }) {
+                            Text("Change")
+                        }
+                    },
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                OutlinedTextField(
+                    value = endDate.format(dateFormatter),
+                    onValueChange = {},
+                    label = { Text("To") },
+                    readOnly = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) },
+                    trailingIcon = {
+                        TextButton(onClick = { showEndDatePicker = true }) {
+                            Text("Change")
+                        }
+                    },
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+        }
+    )
+
+    if (showStartDatePicker) {
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = startDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showStartDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    pickerState.selectedDateMillis?.let {
+                        startDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+                    }
+                    showStartDatePicker = false
+                }) { Text("OK") }
+            }
+        ) { DatePicker(state = pickerState) }
+    }
+
+    if (showEndDatePicker) {
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = endDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showEndDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    pickerState.selectedDateMillis?.let {
+                        endDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+                    }
+                    showEndDatePicker = false
+                }) { Text("OK") }
+            }
+        ) { DatePicker(state = pickerState) }
     }
 }
 
