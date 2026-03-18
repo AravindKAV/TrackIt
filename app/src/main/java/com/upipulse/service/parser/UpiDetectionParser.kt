@@ -10,7 +10,8 @@ class UpiDetectionParser {
     
     private val amountRegex = Regex("""(?i)(?:rs\.?|inr|₹|paid|spent)\s*([0-9,.]+)""")
     private val merchantRegex = Regex("""(?i)(?:to|from|at)\s+([A-Za-z0-9 .@&_'-]+)""")
-    private val cardSuffixRegex = Regex("""(?i)(?:card no\.|a/c|ending in)\s*(?:xx|x+)?(\d{4})""")
+    private val cardSuffixRegex = Regex("""(?i)(?:card no\.|a/c|ending in|no\s*xx)\s*(?:xx|x+)?(\d{4})""")
+    private val upiRefRegex = Regex("""(?i)(?:upi ref no|ref no|rrn)\s*(\d+)""")
     
     // Keywords indicating a credit (income)
     private val creditKeywords = listOf("credited", "received", "added to", "deposited", "refund")
@@ -24,7 +25,7 @@ class UpiDetectionParser {
     ): Transaction? {
         val lowerBody = body.lowercase(Locale.getDefault())
         
-        // Find amount - check standard patterns first
+        // Find amount
         val amountMatch = amountRegex.find(body) ?: Regex("""\d+\.\d{2}""").find(body)
         if (amountMatch == null) return null
         
@@ -35,16 +36,17 @@ class UpiDetectionParser {
         val isCredit = creditKeywords.any { lowerBody.contains(it) }
         val isDebit = debitKeywords.any { lowerBody.contains(it) }
         
-        // If it's a debit (or contains "paid/spent"), make it negative
         if ((isDebit || lowerBody.contains("paid") || lowerBody.contains("spent")) && !isCredit) {
             amount = -amount
         } else if (!isCredit) {
-            // Default to debit if "to" is present and no "received"
             if (lowerBody.contains("to ")) amount = -amount
         }
 
         // Try to extract card/account suffix
         val cardSuffix = cardSuffixRegex.find(body)?.groupValues?.getOrNull(1)
+        
+        // Try to extract UPI Reference Number for deduplication
+        val upiRef = upiRefRegex.find(body)?.groupValues?.getOrNull(1)
 
         val merchant = extractMerchant(body) ?: guessMerchant(body)
             
@@ -55,6 +57,10 @@ class UpiDetectionParser {
             else -> "System"
         }
         
+        // Create an externalId for deduplication. 
+        // Preference: UPI Reference > (Amount + Suffix + Date approx)
+        val externalId = upiRef ?: "MANUAL_${amount}_${cardSuffix ?: "NOSUFFIX"}_${timestamp.toEpochMilli() / 60000}"
+        
         return Transaction(
             id = 0,
             amount = amount,
@@ -64,12 +70,12 @@ class UpiDetectionParser {
             date = timestamp,
             notes = cardSuffix?.let { "Suffix:$it|$body" } ?: body.take(140),
             source = source,
-            account = AccountSummary(id = -1, name = "Unassigned")
+            account = AccountSummary(id = -1, name = "Unassigned"),
+            externalId = externalId
         )
     }
 
     private fun extractMerchant(body: String): String? {
-        // Try to find merchant in GPay/PhonePe format: "Paid Rs. 50 to [Merchant]"
         val patterns = listOf(
             Regex("""(?i)to\s+([A-Za-z0-9 .@&_'-]+?)\s+(?:on|using|ref|txn)"""),
             Regex("""(?i)paid\s+(?:rs\.?|inr|₹)\s*[0-9,.]+\s+to\s+([A-Za-z0-9 .@&_'-]+)"""),
@@ -83,7 +89,6 @@ class UpiDetectionParser {
     }
 
     private fun guessMerchant(body: String): String {
-        // Try splitting by keywords
         val parts = body.split(Regex("(?i)to|from|at|using"))
         if (parts.size > 1) {
             val potential = parts[1].trim().split(" ").take(3).joinToString(" ")

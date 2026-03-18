@@ -11,7 +11,8 @@ data class Transaction(
     val date: Instant,
     val notes: String?,
     val source: TransactionSource,
-    val account: AccountSummary
+    val account: AccountSummary,
+    val externalId: String? = null
 )
 
 enum class TransactionSource { MANUAL, SMS, NOTIFICATION }

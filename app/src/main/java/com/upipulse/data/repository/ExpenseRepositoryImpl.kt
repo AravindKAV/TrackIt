@@ -230,7 +230,8 @@ class ExpenseRepositoryImpl @Inject constructor(
             date = transaction.date,
             notes = transaction.notes,
             source = transaction.source,
-            account = AccountSummary(transaction.accountId, accountName)
+            account = AccountSummary(transaction.accountId, accountName),
+            externalId = transaction.externalId
         )
     }
 
@@ -243,7 +244,8 @@ class ExpenseRepositoryImpl @Inject constructor(
         date = date,
         notes = notes,
         source = source,
-        accountId = account.id
+        accountId = account.id,
+        externalId = externalId
     )
 
     private fun CategoryEntity.toDomain(): Category = Category(id = id, name = name, icon = icon, type = type)
