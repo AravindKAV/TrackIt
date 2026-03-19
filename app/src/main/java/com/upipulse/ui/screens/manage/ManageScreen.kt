@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -23,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.upipulse.domain.model.CategoryType
+import com.upipulse.domain.model.Mandate
+import com.upipulse.domain.model.MandateType
 import com.upipulse.util.formatInr
 import kotlin.math.absoluteValue
 
@@ -37,7 +40,9 @@ fun ManageScreen(
     val state by viewModel.state.collectAsState()
     var showAccountDialog by remember { mutableStateOf(false) }
     var showCategoryDialog by remember { mutableStateOf(false) }
+    var showMandateDialog by remember { mutableStateOf(false) }
     var categoryDropdownExpanded by remember { mutableStateOf(false) }
+    var mandateToDelete by remember { mutableStateOf<Mandate?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
@@ -60,7 +65,7 @@ fun ManageScreen(
         ) {
             item {
                 Text(
-                    "Manage Accounts", 
+                    "Manage", 
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.ExtraBold
                 )
@@ -68,139 +73,114 @@ fun ManageScreen(
 
             // Bank Accounts Section
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "Bank Accounts", 
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                SectionHeader(
+                    title = "Bank Accounts",
+                    onAddClick = { showAccountDialog = true },
+                    addLabel = "Add Account"
+                )
+                
+                if (state.accounts.isEmpty()) {
+                    EmptyStateCard("No bank accounts added. Tap 'Add Account' to start tracking your balances.")
+                } else {
+                    state.accounts.forEach { account ->
+                        AccountRow(
+                            account = account, 
+                            onDelete = { viewModel.deleteAccount(account.id) },
+                            onClick = { onNavigateToAccountTransactions(account.id) }
                         )
-                        TextButton(
-                            onClick = { showAccountDialog = true },
-                            contentPadding = PaddingValues(horizontal = 12.dp)
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Add Account")
-                        }
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
-                    
-                    if (state.accounts.isEmpty()) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-                        ) {
-                            Text(
-                                "No bank accounts added. Tap 'Add Account' to start tracking your balances.",
-                                modifier = Modifier.padding(16.dp),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    } else {
-                        state.accounts.forEach { account ->
-                            AccountRow(
-                                account = account, 
-                                onDelete = { viewModel.deleteAccount(account.id) },
-                                onClick = { onNavigateToAccountTransactions(account.id) }
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                        }
+                }
+            }
+
+            // Mandates / EMI Section
+            item {
+                SectionHeader(
+                    title = "Mandates & EMIs",
+                    onAddClick = { showMandateDialog = true },
+                    addLabel = "Add Mandate"
+                )
+                
+                if (state.mandates.isEmpty()) {
+                    EmptyStateCard("No mandates added. Tracking recurring payments helps you stay on top of your commitments.")
+                } else {
+                    state.mandates.forEach { mandate ->
+                        MandateRow(
+                            mandate = mandate,
+                            onDelete = { mandateToDelete = mandate }
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
             }
 
             // Categories Section
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "Categories", 
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                SectionHeader(
+                    title = "Categories",
+                    onAddClick = { showCategoryDialog = true },
+                    addLabel = "Add Category"
+                )
+                
+                ExposedDropdownMenuBox(
+                    expanded = categoryDropdownExpanded,
+                    onExpandedChange = { categoryDropdownExpanded = !categoryDropdownExpanded },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OutlinedTextField(
+                        value = "Browse Existing Categories",
+                        onValueChange = {},
+                        readOnly = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(),
+                        leadingIcon = { Icon(Icons.Default.Category, contentDescription = null) },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryDropdownExpanded) },
+                        shape = RoundedCornerShape(16.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
                         )
-                        TextButton(
-                            onClick = { showCategoryDialog = true },
-                            contentPadding = PaddingValues(horizontal = 12.dp)
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Add Category")
-                        }
-                    }
-                    
-                    ExposedDropdownMenuBox(
+                    )
+                    ExposedDropdownMenu(
                         expanded = categoryDropdownExpanded,
-                        onExpandedChange = { categoryDropdownExpanded = !categoryDropdownExpanded },
-                        modifier = Modifier.fillMaxWidth()
+                        onDismissRequest = { categoryDropdownExpanded = false }
                     ) {
-                        OutlinedTextField(
-                            value = "Browse Existing Categories",
-                            onValueChange = {},
-                            readOnly = true,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor(),
-                            leadingIcon = { Icon(Icons.Default.Category, contentDescription = null) },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryDropdownExpanded) },
-                            shape = RoundedCornerShape(16.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                        if (state.categories.isEmpty()) {
+                            DropdownMenuItem(
+                                text = { Text("No custom categories added") },
+                                onClick = { categoryDropdownExpanded = false }
                             )
-                        )
-                        ExposedDropdownMenu(
-                            expanded = categoryDropdownExpanded,
-                            onDismissRequest = { categoryDropdownExpanded = false }
-                        ) {
-                            if (state.categories.isEmpty()) {
+                        } else {
+                            val uniqueCategories = state.categories.distinctBy { it.name }
+                            val debitCategories = uniqueCategories.filter { it.type == CategoryType.DEBIT || it.type == CategoryType.BOTH }
+                            val creditCategories = uniqueCategories.filter { it.type == CategoryType.CREDIT || it.type == CategoryType.BOTH }
+
+                            if (debitCategories.isNotEmpty()) {
                                 DropdownMenuItem(
-                                    text = { Text("No custom categories added") },
-                                    onClick = { categoryDropdownExpanded = false }
+                                    text = { Text("DEBIT CATEGORIES", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary) },
+                                    onClick = {},
+                                    enabled = false
                                 )
-                            } else {
-                                val uniqueCategories = state.categories.distinctBy { it.name }
-                                val debitCategories = uniqueCategories.filter { it.type == CategoryType.DEBIT || it.type == CategoryType.BOTH }
-                                val creditCategories = uniqueCategories.filter { it.type == CategoryType.CREDIT || it.type == CategoryType.BOTH }
-
-                                if (debitCategories.isNotEmpty()) {
+                                debitCategories.forEach { category ->
                                     DropdownMenuItem(
-                                        text = { Text("DEBIT CATEGORIES", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary) },
-                                        onClick = {},
-                                        enabled = false
+                                        text = { Text(category.name, modifier = Modifier.padding(start = 8.dp)) },
+                                        onClick = { categoryDropdownExpanded = false }
                                     )
-                                    debitCategories.forEach { category ->
-                                        DropdownMenuItem(
-                                            text = { 
-                                                Text(category.name, modifier = Modifier.padding(start = 8.dp))
-                                            },
-                                            onClick = { categoryDropdownExpanded = false }
-                                        )
-                                    }
                                 }
+                            }
 
-                                if (creditCategories.isNotEmpty()) {
-                                    if (debitCategories.isNotEmpty()) HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                            if (creditCategories.isNotEmpty()) {
+                                if (debitCategories.isNotEmpty()) HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                                DropdownMenuItem(
+                                    text = { Text("CREDIT CATEGORIES", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color(0xFF10B981)) },
+                                    onClick = {},
+                                    enabled = false
+                                )
+                                creditCategories.forEach { category ->
                                     DropdownMenuItem(
-                                        text = { Text("CREDIT CATEGORIES", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color(0xFF10B981)) },
-                                        onClick = {},
-                                        enabled = false
+                                        text = { Text(category.name, modifier = Modifier.padding(start = 8.dp)) },
+                                        onClick = { categoryDropdownExpanded = false }
                                     )
-                                    creditCategories.forEach { category ->
-                                        DropdownMenuItem(
-                                            text = { 
-                                                Text(category.name, modifier = Modifier.padding(start = 8.dp))
-                                            },
-                                            onClick = { categoryDropdownExpanded = false }
-                                        )
-                                    }
                                 }
                             }
                         }
@@ -231,6 +211,190 @@ fun ManageScreen(
             }
         )
     }
+
+    if (showMandateDialog) {
+        MandateDialog(
+            categories = state.categories.map { it.name }.distinct(),
+            onDismiss = { showMandateDialog = false },
+            onSave = { name, amount, day, type, category ->
+                viewModel.addMandate(name, amount, day, type, category)
+                showMandateDialog = false
+            }
+        )
+    }
+
+    if (mandateToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { mandateToDelete = null },
+            title = { Text("Delete Mandate?") },
+            text = { Text("This will stop tracking this recurring payment. Existing transactions will not be affected.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    mandateToDelete?.let { viewModel.deleteMandate(it) }
+                    mandateToDelete = null
+                }) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { mandateToDelete = null }) { Text("Cancel") }
+            }
+        )
+    }
+}
+
+@Composable
+private fun SectionHeader(title: String, onAddClick: () -> Unit, addLabel: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            title, 
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
+        TextButton(
+            onClick = onAddClick,
+            contentPadding = PaddingValues(horizontal = 12.dp)
+        ) {
+            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(addLabel)
+        }
+    }
+}
+
+@Composable
+private fun EmptyStateCard(text: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+    ) {
+        Text(
+            text,
+            modifier = Modifier.padding(16.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun MandateRow(
+    mandate: Mandate,
+    onDelete: () -> Unit
+) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier.size(48.dp).background(MaterialTheme.colorScheme.tertiaryContainer, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    if (mandate.type == MandateType.LOAN) Icons.Default.AccountBalance else Icons.Default.Subscriptions,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onTertiaryContainer
+                )
+            }
+            
+            Column(modifier = Modifier.padding(horizontal = 16.dp).weight(1f)) {
+                Text(mandate.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("Due on day ${mandate.dueDay} • ${mandate.category}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            
+            Column(horizontalAlignment = Alignment.End) {
+                Text(formatInr(mandate.amount), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                IconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {
+                    Icon(Icons.Default.Delete, contentDescription = "Remove", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f), modifier = Modifier.size(18.dp))
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MandateDialog(
+    categories: List<String>,
+    onDismiss: () -> Unit,
+    onSave: (String, Double, Int, MandateType, String) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var amount by remember { mutableStateOf("") }
+    var dueDay by remember { mutableStateOf("") }
+    var type by remember { mutableStateOf(MandateType.LOAN) }
+    var category by remember { mutableStateOf(if (categories.isNotEmpty()) categories.first() else "EMI") }
+    var categoryExpanded by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add Mandate / EMI", fontWeight = FontWeight.Bold) },
+        confirmButton = {
+            Button(
+                onClick = { 
+                    onSave(name, amount.toDoubleOrNull() ?: 0.0, dueDay.toIntOrNull() ?: 1, type, category) 
+                },
+                enabled = name.isNotBlank() && amount.isNotEmpty() && dueDay.isNotEmpty()
+            ) {
+                Text("Save Mandate")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Mandate Name (e.g. Home Loan)") }, modifier = Modifier.fillMaxWidth())
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = amount, 
+                        onValueChange = { amount = it.filter { c -> c.isDigit() || c == '.' } }, 
+                        label = { Text("Amount") }, 
+                        modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
+                    OutlinedTextField(
+                        value = dueDay, 
+                        onValueChange = { dueDay = it.filter { c -> c.isDigit() }.take(2) }, 
+                        label = { Text("Due Day (1-31)") }, 
+                        modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
+                }
+                
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = type == MandateType.LOAN, onClick = { type = MandateType.LOAN }, label = { Text("Loan EMI") })
+                    FilterChip(selected = type == MandateType.SUBSCRIPTION, onClick = { type = MandateType.SUBSCRIPTION }, label = { Text("Subscription") })
+                }
+
+                ExposedDropdownMenuBox(
+                    expanded = categoryExpanded,
+                    onExpandedChange = { categoryExpanded = !categoryExpanded }
+                ) {
+                    OutlinedTextField(
+                        value = category,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Link to Category") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                    )
+                    ExposedDropdownMenu(expanded = categoryExpanded, onDismissRequest = { categoryExpanded = false }) {
+                        categories.forEach { cat ->
+                            DropdownMenuItem(text = { Text(cat) }, onClick = { category = cat; categoryExpanded = false })
+                        }
+                    }
+                }
+            }
+        }
+    )
 }
 
 @Composable

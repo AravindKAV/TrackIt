@@ -1,9 +1,6 @@
 package com.upipulse.data.repository
 
-import com.upipulse.domain.model.Account
-import com.upipulse.domain.model.DashboardAnalytics
-import com.upipulse.domain.model.Transaction
-import com.upipulse.domain.model.Category
+import com.upipulse.domain.model.*
 import kotlinx.coroutines.flow.Flow
 
 interface ExpenseRepository {
@@ -12,6 +9,12 @@ interface ExpenseRepository {
     fun observeTransaction(id: Long): Flow<Transaction?>
     fun observeCategories(): Flow<List<Category>>
     fun observeAccounts(): Flow<List<Account>>
+    
+    // Mandates
+    fun observeMandates(): Flow<List<Mandate>>
+    suspend fun upsertMandate(mandate: Mandate): Long
+    suspend fun deleteMandate(mandate: Mandate)
+
     suspend fun ensureCategories(categories: List<Category>)
     suspend fun upsertCategory(category: Category): Category
     suspend fun deleteCategory(category: Category)

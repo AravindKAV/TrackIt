@@ -2,21 +2,15 @@ package com.upipulse.data.repository
 
 import com.upipulse.data.local.dao.AccountDao
 import com.upipulse.data.local.dao.CategoryDao
+import com.upipulse.data.local.dao.MandateDao
 import com.upipulse.data.local.dao.TransactionDao
 import com.upipulse.data.local.dao.TransactionDao.TransactionWithAccountProjection
 import com.upipulse.data.local.entity.AccountEntity
 import com.upipulse.data.local.entity.CategoryEntity
+import com.upipulse.data.local.entity.MandateEntity
 import com.upipulse.data.local.entity.TransactionEntity
 import com.upipulse.di.IoDispatcher
-import com.upipulse.domain.model.Account
-import com.upipulse.domain.model.AccountSpending
-import com.upipulse.domain.model.AccountSummary
-import com.upipulse.domain.model.Category
-import com.upipulse.domain.model.CategoryBreakdown
-import com.upipulse.domain.model.CategoryType
-import com.upipulse.domain.model.DashboardAnalytics
-import com.upipulse.domain.model.Transaction
-import com.upipulse.domain.model.WeeklySpendingPoint
+import com.upipulse.domain.model.*
 import com.upipulse.util.DateUtils
 import com.upipulse.util.DateUtils.isWithin
 import java.time.ZoneId
@@ -35,6 +29,7 @@ class ExpenseRepositoryImpl @Inject constructor(
     private val transactionDao: TransactionDao,
     private val categoryDao: CategoryDao,
     private val accountDao: AccountDao,
+    private val mandateDao: MandateDao,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : ExpenseRepository {
 
@@ -69,6 +64,22 @@ class ExpenseRepositoryImpl @Inject constructor(
         accountDao.observeAccounts()
             .map { entities -> entities.map { it.toDomain() } }
             .flowOn(ioDispatcher)
+
+    override fun observeMandates(): Flow<List<Mandate>> =
+        mandateDao.observeAll()
+            .map { entities -> entities.map { it.toDomain() } }
+            .flowOn(ioDispatcher)
+
+    override suspend fun upsertMandate(mandate: Mandate): Long =
+        withContext(ioDispatcher) {
+            mandateDao.insert(mandate.toEntity())
+        }
+
+    override suspend fun deleteMandate(mandate: Mandate) {
+        withContext(ioDispatcher) {
+            mandateDao.delete(mandate.toEntity())
+        }
+    }
 
     override suspend fun ensureCategories(categories: List<Category>) {
         withContext(ioDispatcher) {
@@ -277,5 +288,31 @@ class ExpenseRepositoryImpl @Inject constructor(
         numberSuffix = numberSuffix,
         colorHex = colorHex,
         balance = balance
+    )
+
+    private fun MandateEntity.toDomain(): Mandate = Mandate(
+        id = id,
+        name = name,
+        amount = amount,
+        dueDay = dueDay,
+        type = type,
+        category = category,
+        startDate = startDate,
+        endDate = endDate,
+        isActive = isActive,
+        lastPaidMonth = lastPaidMonth
+    )
+
+    private fun Mandate.toEntity(): MandateEntity = MandateEntity(
+        id = id,
+        name = name,
+        amount = amount,
+        dueDay = dueDay,
+        type = type,
+        category = category,
+        startDate = startDate,
+        endDate = endDate,
+        isActive = isActive,
+        lastPaidMonth = lastPaidMonth
     )
 }

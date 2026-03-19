@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.upipulse.data.local.dao.AccountDao
 import com.upipulse.data.local.dao.CategoryDao
+import com.upipulse.data.local.dao.MandateDao
 import com.upipulse.data.local.dao.TransactionDao
 import com.upipulse.data.local.db.UpiPulseDatabase
 import dagger.Module
@@ -32,4 +33,7 @@ object DatabaseModule {
 
     @Provides
     fun provideAccountDao(db: UpiPulseDatabase): AccountDao = db.accountDao()
+
+    @Provides
+    fun provideMandateDao(db: UpiPulseDatabase): MandateDao = db.mandateDao()
 }

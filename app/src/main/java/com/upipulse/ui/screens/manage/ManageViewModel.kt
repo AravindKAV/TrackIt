@@ -5,12 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.upipulse.domain.model.Account
 import com.upipulse.domain.model.Category
 import com.upipulse.domain.model.CategoryType
-import com.upipulse.domain.usecase.ObserveAccountsUseCase
-import com.upipulse.domain.usecase.ObserveCategoriesUseCase
-import com.upipulse.domain.usecase.UpsertAccountUseCase
-import com.upipulse.domain.usecase.DeleteAccountUseCase
-import com.upipulse.domain.usecase.UpsertCategoryUseCase
-import com.upipulse.domain.usecase.DeleteCategoryUseCase
+import com.upipulse.domain.model.Mandate
+import com.upipulse.domain.model.MandateType
+import com.upipulse.data.repository.ExpenseRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
@@ -27,17 +24,13 @@ sealed interface ManageEvent {
 
 data class ManageUiState(
     val accounts: List<Account> = emptyList(),
-    val categories: List<Category> = emptyList()
+    val categories: List<Category> = emptyList(),
+    val mandates: List<Mandate> = emptyList()
 )
 
 @HiltViewModel
 class ManageViewModel @Inject constructor(
-    observeAccountsUseCase: ObserveAccountsUseCase,
-    observeCategoriesUseCase: ObserveCategoriesUseCase,
-    private val upsertAccountUseCase: UpsertAccountUseCase,
-    private val deleteAccountUseCase: DeleteAccountUseCase,
-    private val upsertCategoryUseCase: UpsertCategoryUseCase,
-    private val deleteCategoryUseCase: DeleteCategoryUseCase
+    private val repository: ExpenseRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ManageUiState())
@@ -48,13 +41,18 @@ class ManageViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            observeAccountsUseCase().collectLatest { accounts ->
+            repository.observeAccounts().collectLatest { accounts ->
                 _state.value = _state.value.copy(accounts = accounts)
             }
         }
         viewModelScope.launch {
-            observeCategoriesUseCase().collectLatest { categories ->
+            repository.observeCategories().collectLatest { categories ->
                 _state.value = _state.value.copy(categories = categories)
+            }
+        }
+        viewModelScope.launch {
+            repository.observeMandates().collectLatest { mandates ->
+                _state.value = _state.value.copy(mandates = mandates)
             }
         }
     }
@@ -62,16 +60,8 @@ class ManageViewModel @Inject constructor(
     fun addCategory(name: String, type: CategoryType) {
         viewModelScope.launch {
             val category = Category(id = 0, name = name.trim(), icon = "ic_custom", type = type)
-            runCatching { upsertCategoryUseCase(category) }
+            runCatching { repository.upsertCategory(category) }
                 .onSuccess { eventsChannel.send(ManageEvent.Message("Category added")) }
-                .onFailure { eventsChannel.send(ManageEvent.Message(it.message.orEmpty())) }
-        }
-    }
-
-    fun deleteCategory(category: Category) {
-        viewModelScope.launch {
-            runCatching { deleteCategoryUseCase(category) }
-                .onSuccess { eventsChannel.send(ManageEvent.Message("Category removed")) }
                 .onFailure { eventsChannel.send(ManageEvent.Message(it.message.orEmpty())) }
         }
     }
@@ -84,7 +74,7 @@ class ManageViewModel @Inject constructor(
                 numberSuffix = numberSuffix?.ifBlank { null },
                 balance = initialBalance
             )
-            runCatching { upsertAccountUseCase(account) }
+            runCatching { repository.upsertAccount(account) }
                 .onSuccess { eventsChannel.send(ManageEvent.Message("Account added")) }
                 .onFailure { eventsChannel.send(ManageEvent.Message(it.message.orEmpty())) }
         }
@@ -93,8 +83,31 @@ class ManageViewModel @Inject constructor(
     fun deleteAccount(accountId: Long) {
         val target = _state.value.accounts.firstOrNull { it.id == accountId } ?: return
         viewModelScope.launch {
-            runCatching { deleteAccountUseCase(target) }
+            runCatching { repository.deleteAccount(target) }
                 .onSuccess { eventsChannel.send(ManageEvent.Message("Account removed")) }
+                .onFailure { eventsChannel.send(ManageEvent.Message(it.message.orEmpty())) }
+        }
+    }
+
+    fun addMandate(name: String, amount: Double, dueDay: Int, type: MandateType, category: String) {
+        viewModelScope.launch {
+            val mandate = Mandate(
+                name = name.trim(),
+                amount = amount,
+                dueDay = dueDay,
+                type = type,
+                category = category
+            )
+            runCatching { repository.upsertMandate(mandate) }
+                .onSuccess { eventsChannel.send(ManageEvent.Message("${type.name} added")) }
+                .onFailure { eventsChannel.send(ManageEvent.Message(it.message.orEmpty())) }
+        }
+    }
+
+    fun deleteMandate(mandate: Mandate) {
+        viewModelScope.launch {
+            runCatching { repository.deleteMandate(mandate) }
+                .onSuccess { eventsChannel.send(ManageEvent.Message("Mandate removed")) }
                 .onFailure { eventsChannel.send(ManageEvent.Message(it.message.orEmpty())) }
         }
     }
