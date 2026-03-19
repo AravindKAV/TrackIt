@@ -184,6 +184,14 @@ class ExpenseRepositoryImpl @Inject constructor(
                 CategoryBreakdown(category = category, total = abs(values.sumOf { it.amount }))
             }
             .sortedByDescending { it.total }
+
+        val incomeCategoryBreakdown = monthlyTransactions
+            .filter { it.amount > 0 }
+            .groupBy { it.category }
+            .map { (category, values) ->
+                CategoryBreakdown(category = category, total = values.sumOf { it.amount })
+            }
+            .sortedByDescending { it.total }
             
         val weeklyTrend = DateUtils.weekDays().map { day ->
             val total = weeklyTransactions
@@ -213,6 +221,7 @@ class ExpenseRepositoryImpl @Inject constructor(
             monthlyTotal = monthlyTotalSpent,
             monthlyIncome = monthlyTotalEarned,
             categoryBreakdown = categoryBreakdown,
+            incomeCategoryBreakdown = incomeCategoryBreakdown,
             weeklyTrend = weeklyTrend,
             recentTransactions = recent,
             accountSpending = accountTotals

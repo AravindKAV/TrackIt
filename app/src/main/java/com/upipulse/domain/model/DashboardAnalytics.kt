@@ -6,6 +6,7 @@ data class DashboardAnalytics(
     val monthlyTotal: Double,
     val monthlyIncome: Double,
     val categoryBreakdown: List<CategoryBreakdown>,
+    val incomeCategoryBreakdown: List<CategoryBreakdown>,
     val weeklyTrend: List<WeeklySpendingPoint>,
     val recentTransactions: List<Transaction>,
     val accountSpending: List<AccountSpending>

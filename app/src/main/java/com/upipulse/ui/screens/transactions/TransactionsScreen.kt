@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -27,14 +28,15 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -42,8 +44,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.upipulse.domain.model.Transaction
 import com.upipulse.ui.components.TransactionRow
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,6 +56,7 @@ fun TransactionsScreen(
     viewModel: TransactionsViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
+    var transactionToDelete by remember { mutableStateOf<Transaction?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
@@ -134,44 +137,11 @@ fun TransactionsScreen(
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         items(state.displayedTransactions, key = { it.id }) { transaction ->
-                            val dismissState = rememberSwipeToDismissBoxState(
-                                confirmValueChange = { value ->
-                                    if (value == SwipeToDismissBoxValue.EndToStart) {
-                                        viewModel.delete(transaction)
-                                        true
-                                    } else false
-                                }
-                            )
-                            SwipeToDismissBox(
-                                state = dismissState,
-                                enableDismissFromStartToEnd = false,
-                                backgroundContent = {
-                                    val color = if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
-                                        MaterialTheme.colorScheme.errorContainer
-                                    } else Color.Transparent
-                                    
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .padding(vertical = 4.dp)
-                                            .background(color, RoundedCornerShape(20.dp)),
-                                        contentAlignment = Alignment.CenterEnd
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Delete,
-                                            contentDescription = "Delete",
-                                            tint = MaterialTheme.colorScheme.onErrorContainer,
-                                            modifier = Modifier.padding(end = 16.dp)
-                                        )
-                                    }
-                                },
-                                content = {
-                                    TransactionRow(
-                                        transaction = transaction,
-                                        modifier = Modifier.fillMaxWidth(),
-                                        onClick = { onEditTransaction(transaction.id) }
-                                    )
-                                }
+                            TransactionRow(
+                                transaction = transaction,
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = { onEditTransaction(transaction.id) },
+                                onLongClick = { transactionToDelete = transaction }
                             )
                         }
                         item { Spacer(modifier = Modifier.height(80.dp)) }
@@ -179,6 +149,29 @@ fun TransactionsScreen(
                 }
             }
         }
+    }
+
+    if (transactionToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { transactionToDelete = null },
+            title = { Text("Delete Transaction?") },
+            text = { Text("Are you sure you want to delete this record? This action cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        transactionToDelete?.let { viewModel.delete(it) }
+                        transactionToDelete = null
+                    }
+                ) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { transactionToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 

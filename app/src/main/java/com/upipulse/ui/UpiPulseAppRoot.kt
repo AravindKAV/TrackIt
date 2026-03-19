@@ -57,6 +57,7 @@ import com.upipulse.ui.screens.splash.SplashEvent
 import com.upipulse.ui.screens.splash.SplashScreen
 import com.upipulse.ui.screens.transactions.TransactionsScreen
 import com.upipulse.ui.screens.history.HistoryScreen
+import com.upipulse.ui.screens.manage.ManageScreen
 import kotlinx.coroutines.launch
 
 @Composable
@@ -142,36 +143,39 @@ fun TrackItAppRoot() {
             composable(Destinations.DASHBOARD) {
                 DashboardScreen()
             }
-            composable(Destinations.TRANSACTIONS) {
-                TransactionsScreen(
-                    onEditTransaction = { id ->
-                        appState.navController.navigate("${Destinations.TRANSACTIONS}/filter/account/$id")
-                    },
-                    onMessage = { message -> scope.launch { snackbarHostState.showSnackbar(message) } }
-                )
-            }
-            // New route for filtered transactions
-            composable(
-                route = "${Destinations.TRANSACTIONS}/filter/account/{accountId}",
-                arguments = listOf(navArgument("accountId") { type = NavType.LongType })
-            ) {
-                TransactionsScreen(
+            composable(Destinations.HISTORY) {
+                HistoryScreen(
                     onEditTransaction = { id ->
                         appState.navController.navigate("${Destinations.EDIT_TRANSACTION}/$id")
                     },
                     onMessage = { message -> scope.launch { snackbarHostState.showSnackbar(message) } }
                 )
             }
-            composable(Destinations.HISTORY) {
-                HistoryScreen(onEditTransaction = { id ->
-                    appState.navController.navigate("${Destinations.EDIT_TRANSACTION}/$id")
-                })
+            composable(Destinations.MANAGE) {
+                ManageScreen(
+                    onMessage = { message -> scope.launch { snackbarHostState.showSnackbar(message) } },
+                    onNavigateToAccountTransactions = { accountId ->
+                        appState.navController.navigate("${Destinations.HISTORY}/filter/account/$accountId")
+                    }
+                )
+            }
+            // Add route for filtered history (moved from transactions)
+            composable(
+                route = "${Destinations.HISTORY}/filter/account/{accountId}",
+                arguments = listOf(navArgument("accountId") { type = NavType.LongType })
+            ) {
+                HistoryScreen(
+                    onEditTransaction = { id ->
+                        appState.navController.navigate("${Destinations.EDIT_TRANSACTION}/$id")
+                    },
+                    onMessage = { message -> scope.launch { snackbarHostState.showSnackbar(message) } }
+                )
             }
             composable(Destinations.SETTINGS) {
                 SettingsScreen(
                     onMessage = { message -> scope.launch { snackbarHostState.showSnackbar(message) } },
                     onNavigateToAccountTransactions = { accountId ->
-                        appState.navController.navigate("${Destinations.TRANSACTIONS}/filter/account/$accountId")
+                        appState.navController.navigate("${Destinations.HISTORY}/filter/account/$accountId")
                     }
                 )
             }
@@ -188,7 +192,7 @@ fun TrackItAppRoot() {
                         appState.navController.popBackStack()
                     },
                     onError = { message -> scope.launch { snackbarHostState.showSnackbar(message) } },
-                    onManageAccounts = { appState.navigateToBottom(BottomDestination.SETTINGS) }
+                    onManageAccounts = { appState.navigateToBottom(BottomDestination.MANAGE) }
                 )
             }
             composable(
@@ -205,7 +209,7 @@ fun TrackItAppRoot() {
                         appState.navController.popBackStack()
                     },
                     onError = { message -> scope.launch { snackbarHostState.showSnackbar(message) } },
-                    onManageAccounts = { appState.navigateToBottom(BottomDestination.SETTINGS) }
+                    onManageAccounts = { appState.navigateToBottom(BottomDestination.MANAGE) }
                 )
             }
         }

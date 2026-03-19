@@ -10,7 +10,7 @@ class UpiDetectionParser {
     
     private val amountRegex = Regex("""(?i)(?:rs\.?|inr|₹|paid|spent)\s*([0-9,.]+)""")
     private val merchantRegex = Regex("""(?i)(?:to|from|at)\s+([A-Za-z0-9 .@&_'-]+)""")
-    private val cardSuffixRegex = Regex("""(?i)(?:card no\.|a/c|ending in|no\s*xx)\s*(?:xx|x+)?(\d{4})""")
+    private val cardSuffixRegex = Regex("""(?i)(?:card no\.|a/c|ending in|no\s*xx|a/c no\s*xx)\s*(\d{4})""")
     private val upiRefRegex = Regex("""(?i)(?:upi ref no|ref no|rrn)\s*(\d+)""")
     
     // Keywords indicating a credit (income)
@@ -25,6 +25,11 @@ class UpiDetectionParser {
     ): Transaction? {
         val lowerBody = body.lowercase(Locale.getDefault())
         
+        // Filter out split requests or payment requests
+        if (lowerBody.contains("split") || lowerBody.contains("request")) {
+            return null
+        }
+
         // Find amount
         val amountMatch = amountRegex.find(body) ?: Regex("""\d+\.\d{2}""").find(body)
         if (amountMatch == null) return null
@@ -58,7 +63,6 @@ class UpiDetectionParser {
         }
         
         // Create an externalId for deduplication. 
-        // Preference: UPI Reference > (Amount + Suffix + Date approx)
         val externalId = upiRef ?: "MANUAL_${amount}_${cardSuffix ?: "NOSUFFIX"}_${timestamp.toEpochMilli() / 60000}"
         
         return Transaction(
@@ -76,8 +80,12 @@ class UpiDetectionParser {
     }
 
     private fun extractMerchant(body: String): String? {
+        // Specific pattern for the provided example: "... time [Merchant] avl limit ..."
+        val customPattern = Regex("""(?i)\d{1,2}:\d{2}\s+(?:AM|PM)?\s*([A-Za-z0-9 .@&_'-]+?)\s+avl limit""").find(body)
+        if (customPattern != null) return customPattern.groupValues[1].trim()
+
         val patterns = listOf(
-            Regex("""(?i)to\s+([A-Za-z0-9 .@&_'-]+?)\s+(?:on|using|ref|txn)"""),
+            Regex("""(?i)to\s+([A-Za-z0-9 .@&_'-]+?)\s+(?:on|using|ref|txn|avl limit)"""),
             Regex("""(?i)paid\s+(?:rs\.?|inr|₹)\s*[0-9,.]+\s+to\s+([A-Za-z0-9 .@&_'-]+)"""),
             Regex("""(?i)received\s+(?:rs\.?|inr|₹)\s*[0-9,.]+\s+from\s+([A-Za-z0-9 .@&_'-]+)""")
         )
@@ -92,7 +100,7 @@ class UpiDetectionParser {
         val parts = body.split(Regex("(?i)to|from|at|using"))
         if (parts.size > 1) {
             val potential = parts[1].trim().split(" ").take(3).joinToString(" ")
-            if (potential.isNotEmpty()) return potential
+            if (potential.isNotEmpty() && !potential.contains(Regex("""\d{10,12}"""))) return potential
         }
         return "Manual Entry"
     }

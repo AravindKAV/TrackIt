@@ -1,7 +1,8 @@
 package com.upipulse.ui.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,17 +45,22 @@ import java.time.format.DateTimeFormatter
 private val dateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("dd MMM")
 private val timeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("hh:mm a")
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TransactionRow(
     transaction: Transaction,
     modifier: Modifier = Modifier,
-    onClick: (() -> Unit)? = null
+    onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null
 ) {
-    val (icon, color) = getCategoryInfo(transaction.category)
+    val isCredit = transaction.amount > 0
+    val amountColor = if (isCredit) Color(0xFF10B981) else Color(0xFFEF4444)
+    val (icon, categoryColor) = getCategoryInfo(transaction.category)
+    
     val cardGradient = Brush.horizontalGradient(
         colors = listOf(
             MaterialTheme.colorScheme.surface,
-            color.copy(alpha = 0.05f)
+            amountColor.copy(alpha = 0.08f)
         )
     )
 
@@ -62,7 +68,10 @@ fun TransactionRow(
         modifier = modifier
             .padding(vertical = 4.dp)
             .clip(RoundedCornerShape(20.dp))
-            .clickable(enabled = onClick != null) { onClick?.invoke() },
+            .combinedClickable(
+                onClick = { onClick?.invoke() },
+                onLongClick = { onLongClick?.invoke() }
+            ),
         shape = RoundedCornerShape(20.dp)
     ) {
         Row(
@@ -72,7 +81,7 @@ fun TransactionRow(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TransactionIcon(icon = icon, color = color)
+            TransactionIcon(icon = icon, color = if (isCredit) Color(0xFF10B981) else categoryColor)
             
             Spacer(modifier = Modifier.width(16.dp))
             
@@ -104,10 +113,10 @@ fun TransactionRow(
             
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = formatInr(transaction.amount),
+                    text = (if (isCredit) "+ " else "- ") + formatInr(kotlin.math.abs(transaction.amount)),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.error
+                    color = amountColor
                 )
                 Text(
                     text = transaction.date.atZone(ZoneId.systemDefault()).format(dateFormatter),
@@ -121,9 +130,9 @@ fun TransactionRow(
 
 private fun getCategoryInfo(category: String): Pair<ImageVector, Color> {
     return when (category.lowercase()) {
-        "food", "dining" -> Icons.Default.Fastfood to Color(0xFFF59E0B)
+        "food", "dining", "food & dining" -> Icons.Default.Fastfood to Color(0xFFF59E0B)
         "shopping" -> Icons.Default.ShoppingBag to Color(0xFFEC4899)
-        "bills", "utilities" -> Icons.Default.Receipt to Color(0xFF3B82F6)
+        "bills", "utilities", "bills & utilities" -> Icons.Default.Receipt to Color(0xFF3B82F6)
         "transport" -> Icons.Default.CreditCard to Color(0xFF10B981)
         else -> Icons.Default.Category to Color(0xFF6366F1)
     }

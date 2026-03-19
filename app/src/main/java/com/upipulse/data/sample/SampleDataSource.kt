@@ -115,6 +115,9 @@ object SampleDataSource {
         val categoryBreakdown = transactions.filter { it.amount < 0 }
             .groupBy { it.category }
             .map { (category, values) -> CategoryBreakdown(category, values.sumOf { it.amount }.absoluteValue) }
+        val incomeCategoryBreakdown = transactions.filter { it.amount > 0 }
+            .groupBy { it.category }
+            .map { (category, values) -> CategoryBreakdown(category, values.sumOf { it.amount }) }
         val weeklyTrend = DayOfWeek.values().map { day ->
             WeeklySpendingPoint(
                 day = day,
@@ -137,6 +140,7 @@ object SampleDataSource {
             monthlyTotal = monthlyTotal.absoluteValue,
             monthlyIncome = monthlyIncome,
             categoryBreakdown = categoryBreakdown,
+            incomeCategoryBreakdown = incomeCategoryBreakdown,
             weeklyTrend = weeklyTrend,
             recentTransactions = recent,
             accountSpending = accountSpending

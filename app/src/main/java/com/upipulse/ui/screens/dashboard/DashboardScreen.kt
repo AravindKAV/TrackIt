@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -51,7 +52,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.upipulse.domain.model.AccountSpending
 import com.upipulse.domain.model.DashboardAnalytics
 import com.upipulse.ui.components.CategoryPieChart
-import com.upipulse.ui.components.TransactionRow
 import com.upipulse.ui.components.WeeklySpendingBarChart
 import com.upipulse.util.formatInr
 import kotlin.math.absoluteValue
@@ -109,7 +109,7 @@ private fun DashboardContent(
             item { 
                 SectionHeader(
                     title = "Bank Accounts", 
-                    subtitle = "Manage your spending across different banks" 
+                    subtitle = "Current status of your connected accounts" 
                 ) 
             }
             items(analytics.accountSpending) { account ->
@@ -117,57 +117,26 @@ private fun DashboardContent(
             }
         }
         
-        if (analytics.categoryBreakdown.isNotEmpty() || analytics.weeklyTrend.isNotEmpty()) {
+        if (analytics.categoryBreakdown.isNotEmpty() || analytics.incomeCategoryBreakdown.isNotEmpty() || analytics.weeklyTrend.isNotEmpty()) {
             item { SectionHeader(title = "Analytics & Trends") }
             
             if (analytics.categoryBreakdown.isNotEmpty()) {
                 item {
-                    val catGradient = Brush.linearGradient(
-                        listOf(
-                            Color(0xFF0D9488), // Teal 600
-                            Color(0xFF0891B2)  // Cyan 600
-                        )
+                    DistributionCard(
+                        title = "Expense Distribution",
+                        data = analytics.categoryBreakdown,
+                        gradient = Brush.linearGradient(listOf(Color(0xFF0D9488), Color(0xFF0891B2)))
                     )
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .shadow(elevation = 4.dp, shape = RoundedCornerShape(28.dp))
-                            .background(catGradient, RoundedCornerShape(28.dp))
-                            .clip(RoundedCornerShape(28.dp))
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(150.dp)
-                                .offset(x = 220.dp, y = (-40).dp)
-                                .background(Color.White.copy(alpha = 0.1f), CircleShape)
-                        )
-                        
-                        Column(modifier = Modifier.padding(24.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Analytics, contentDescription = null, tint = Color.White)
-                                         Spacer(modifier = Modifier.width(12.dp))
-                                    Text(
-                                        "Category Distribution", 
-                                        style = MaterialTheme.typography.titleLarge,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White
-                                    )
-                                }
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.TrendingUp,
-                                    contentDescription = null,
-                                    tint = Color.White.copy(alpha = 0.6f)
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(20.dp))
-                            CategoryPieChart(data = analytics.categoryBreakdown, modifier = Modifier.fillMaxWidth())
-                        }
-                    }
+                }
+            }
+
+            if (analytics.incomeCategoryBreakdown.isNotEmpty()) {
+                item {
+                    DistributionCard(
+                        title = "Income Distribution",
+                        data = analytics.incomeCategoryBreakdown,
+                        gradient = Brush.linearGradient(listOf(Color(0xFF10B981), Color(0xFF059669)))
+                    )
                 }
             }
 
@@ -215,69 +184,55 @@ private fun DashboardContent(
                 }
             }
         }
-
-        if (analytics.recentTransactions.isNotEmpty()) {
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "Recent Activity", 
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                    Text(
-                        "View All",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-            
-            item {
-                val recentGradient = Brush.linearGradient(
-                    listOf(
-                        Color(0xFF4F46E5), // Indigo 600
-                        Color(0xFF6366F1)  // Indigo 500
-                    )
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .shadow(elevation = 4.dp, shape = RoundedCornerShape(28.dp))
-                        .background(recentGradient, RoundedCornerShape(28.dp))
-                        .clip(RoundedCornerShape(28.dp))
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(100.dp)
-                            .offset(x = 280.dp, y = (-20).dp)
-                            .background(Color.White.copy(alpha = 0.1f), CircleShape)
-                    )
-                    
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 8.dp)
-                        ) {
-                            Icon(Icons.Default.History, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Latest Records", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Color.White)
-                        }
-                        analytics.recentTransactions.forEach { transaction ->
-                            TransactionRow(transaction = transaction, modifier = Modifier.fillMaxWidth())
-                        }
-                    }
-                }
-            }
-        }
         item { Spacer(modifier = Modifier.height(80.dp)) }
+    }
+}
+
+@Composable
+private fun DistributionCard(
+    title: String,
+    data: List<com.upipulse.domain.model.CategoryBreakdown>,
+    gradient: Brush
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(elevation = 4.dp, shape = RoundedCornerShape(28.dp))
+            .background(gradient, RoundedCornerShape(28.dp))
+            .clip(RoundedCornerShape(28.dp))
+    ) {
+        Box(
+            modifier = Modifier
+                .size(150.dp)
+                .offset(x = 220.dp, y = (-40).dp)
+                .background(Color.White.copy(alpha = 0.1f), CircleShape)
+        )
+        
+        Column(modifier = Modifier.padding(24.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Analytics, contentDescription = null, tint = Color.White)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        title, 
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.TrendingUp,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.6f)
+                )
+            }
+            Spacer(modifier = Modifier.height(20.dp))
+            CategoryPieChart(data = data, modifier = Modifier.fillMaxWidth())
+        }
     }
 }
 

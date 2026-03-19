@@ -174,11 +174,11 @@ class SettingsViewModel @Inject constructor(
 
                 context.contentResolver.openOutputStream(uri)?.use { outputStream ->
                     OutputStreamWriter(outputStream).use { writer ->
-                        writer.write("Date,Merchant,Category,Amount,Payment Method,Notes\n")
+                        writer.write("Date,Merchant,Category,Amount,Account,Payment Method,Notes\n")
                         val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
                         filteredTransactions.forEach { txn ->
                             val dateStr = txn.date.atZone(zoneId).format(dateFormatter)
-                            writer.write("\"$dateStr\",\"${txn.merchant}\",\"${txn.category}\",${txn.amount},\"${txn.paymentMethod}\",\"${txn.notes.orEmpty()}\"\n")
+                            writer.write("\"$dateStr\",\"${txn.merchant}\",\"${txn.category}\",${txn.amount},\"${txn.account.name}\",\"${txn.paymentMethod}\",\"${txn.notes.orEmpty()}\"\n")
                         }
                     }
                 }
