@@ -80,6 +80,21 @@ class ManageViewModel @Inject constructor(
         }
     }
 
+    fun updateAccount(accountId: Long, name: String, bank: String, numberSuffix: String?, balance: Double) {
+        val target = _state.value.accounts.firstOrNull { it.id == accountId } ?: return
+        viewModelScope.launch {
+            val updated = target.copy(
+                name = name.trim(),
+                bankName = bank.trim().ifBlank { name },
+                numberSuffix = numberSuffix?.ifBlank { null },
+                balance = balance
+            )
+            runCatching { repository.upsertAccount(updated) }
+                .onSuccess { eventsChannel.send(ManageEvent.Message("Account updated")) }
+                .onFailure { eventsChannel.send(ManageEvent.Message(it.message.orEmpty())) }
+        }
+    }
+
     fun deleteAccount(accountId: Long) {
         val target = _state.value.accounts.firstOrNull { it.id == accountId } ?: return
         viewModelScope.launch {

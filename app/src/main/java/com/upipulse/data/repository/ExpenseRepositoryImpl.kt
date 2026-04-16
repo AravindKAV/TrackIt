@@ -213,11 +213,12 @@ class ExpenseRepositoryImpl @Inject constructor(
         
         val accountLookup = accounts.associateBy { it.id }
         val accountTotals = monthlyTransactions
-            .groupBy { it.account }
-            .map { (account, values) ->
-                val balance = accountLookup[account.id]?.balance ?: 0.0
+            .groupBy { it.account.id }
+            .map { (accountId, values) ->
+                val account = accountLookup[accountId] ?: Account(id = accountId, name = "Unknown", bankName = "Unknown")
+                val balance = account.balance
                 AccountSpending(
-                    account = account,
+                    account = account.toSummary(),
                     amount = values.sumOf { it.amount },
                     balance = balance
                 )
@@ -240,7 +241,7 @@ class ExpenseRepositoryImpl @Inject constructor(
     }
 
     private fun TransactionWithAccountProjection.toDomain(): Transaction {
-        val accountName = accountName ?: "Account #${transaction.accountId}"
+        val bank = accountName ?: "Bank #${transaction.accountId}"
         return Transaction(
             id = transaction.id,
             amount = transaction.amount,
@@ -250,7 +251,7 @@ class ExpenseRepositoryImpl @Inject constructor(
             date = transaction.date,
             notes = transaction.notes,
             source = transaction.source,
-            account = AccountSummary(transaction.accountId, accountName),
+            account = AccountSummary(transaction.accountId, bank),
             externalId = transaction.externalId
         )
     }

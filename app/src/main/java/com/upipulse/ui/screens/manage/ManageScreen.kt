@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.upipulse.domain.model.Account
 import com.upipulse.domain.model.CategoryType
 import com.upipulse.domain.model.Mandate
 import com.upipulse.domain.model.MandateType
@@ -43,6 +44,7 @@ fun ManageScreen(
     var showMandateDialog by remember { mutableStateOf(false) }
     var categoryDropdownExpanded by remember { mutableStateOf(false) }
     var mandateToDelete by remember { mutableStateOf<Mandate?>(null) }
+    var accountToEdit by remember { mutableStateOf<Account?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
@@ -86,6 +88,7 @@ fun ManageScreen(
                         AccountRow(
                             account = account, 
                             onDelete = { viewModel.deleteAccount(account.id) },
+                            onEdit = { accountToEdit = account },
                             onClick = { onNavigateToAccountTransactions(account.id) }
                         )
                         Spacer(modifier = Modifier.height(8.dp))
@@ -194,10 +197,28 @@ fun ManageScreen(
 
     if (showAccountDialog) {
         AccountDialog(
+            title = "Add Bank Account",
+            confirmText = "Save Account",
             onDismiss = { showAccountDialog = false },
             onSave = { name, bank, suffix, amount ->
                 viewModel.addAccount(name, bank, suffix, amount)
                 showAccountDialog = false
+            }
+        )
+    }
+
+    accountToEdit?.let { account ->
+        AccountDialog(
+            title = "Edit Bank Account",
+            confirmText = "Save Changes",
+            initialName = account.name,
+            initialBank = account.bankName,
+            initialSuffix = account.numberSuffix.orEmpty(),
+            initialBalance = account.balance,
+            onDismiss = { accountToEdit = null },
+            onSave = { name, bank, suffix, amount ->
+                viewModel.updateAccount(account.id, name, bank, suffix, amount)
+                accountToEdit = null
             }
         )
     }
@@ -467,8 +488,9 @@ private fun CategoryDialog(
 
 @Composable
 private fun AccountRow(
-    account: com.upipulse.domain.model.Account, 
+    account: Account,
     onDelete: () -> Unit,
+    onEdit: () -> Unit,
     onClick: () -> Unit
 ) {
     val accent = accountAccentColor(account.id)
@@ -508,13 +530,19 @@ private fun AccountRow(
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Text(
-                    account.name, 
+                    account.bankName, 
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1
                 )
                 Text(
-                    text = "${account.bankName}${account.numberSuffix?.let { " • ****$it" } ?: ""}", 
+                    text = buildString {
+                        if (!account.name.isNullOrBlank() && account.name != account.bankName) {
+                            append(account.name)
+                            append(" • ")
+                        }
+                        account.numberSuffix?.let { append("****$it") }
+                    }.trim().removeSuffix(" • "),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1
@@ -529,8 +557,23 @@ private fun AccountRow(
                     color = accent,
                     textAlign = TextAlign.End
                 )
-                IconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {
-                    Icon(Icons.Default.Delete, contentDescription = "Remove", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onEdit, modifier = Modifier.size(24.dp)) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "Edit account",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    IconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Remove",
+                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
         }
@@ -539,26 +582,34 @@ private fun AccountRow(
 
 @Composable
 private fun AccountDialog(
+    title: String,
+    confirmText: String,
+    initialName: String = "",
+    initialBank: String = "",
+    initialSuffix: String = "",
+    initialBalance: Double? = null,
     onDismiss: () -> Unit,
     onSave: (String, String, String?, Double) -> Unit
 ) {
-    var name by remember { mutableStateOf("") }
-    var bank by remember { mutableStateOf("") }
-    var suffix by remember { mutableStateOf("") }
-    var amount by remember { mutableStateOf("") }
+    var name by remember(initialName) { mutableStateOf(initialName) }
+    var bank by remember(initialBank) { mutableStateOf(initialBank) }
+    var suffix by remember(initialSuffix) { mutableStateOf(initialSuffix) }
+    var amount by remember(initialBalance) {
+        mutableStateOf(initialBalance?.toInputAmount().orEmpty())
+    }
     val amountValue = amount.toDoubleOrNull() ?: 0.0
-    val canSave = name.isNotBlank() && amount.isNotEmpty()
+    val canSave = bank.isNotBlank() && amount.isNotEmpty()
     
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(28.dp),
         confirmButton = {
             Button(
-                onClick = { onSave(name, bank.ifBlank { name }, suffix.ifBlank { null }, amountValue) }, 
+                onClick = { onSave(name.ifBlank { bank }, bank, suffix.ifBlank { null }, amountValue) }, 
                 enabled = canSave,
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Save Account")
+                Text(confirmText)
             }
         },
         dismissButton = {
@@ -566,7 +617,7 @@ private fun AccountDialog(
         },
         title = { 
             Text(
-                "Add Bank Account", 
+                title,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             ) 
@@ -574,22 +625,23 @@ private fun AccountDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(top = 8.dp)) {
                 OutlinedTextField(
-                    value = name, 
-                    onValueChange = { name = it }, 
-                    label = { Text("Account Nickname (e.g. My Savings)") },
+                    value = bank, 
+                    onValueChange = { bank = it }, 
+                    label = { Text("Bank Name (e.g. HDFC Bank)") },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 )
                 OutlinedTextField(
-                    value = bank, 
-                    onValueChange = { bank = it }, 
-                    label = { Text("Bank Name (e.g. HDFC)") },
+                    value = name, 
+                    onValueChange = { name = it }, 
+                    label = { Text("Account Nickname (Optional)") },
+                    placeholder = { Text("e.g. Salary Account") },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 )
                 OutlinedTextField(
                     value = suffix, 
-                    onValueChange = { suffix = it }, 
+                    onValueChange = { suffix = it.take(4) },
                     label = { Text("Last 4 Digits (Optional)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
@@ -619,4 +671,8 @@ private fun accountAccentColor(id: Long): Color {
     )
     return if (AccentPalette.isEmpty()) Color(0xFF6366F1)
     else AccentPalette[(id.toInt().absoluteValue) % AccentPalette.size]
+}
+
+private fun Double.toInputAmount(): String {
+    return if (this % 1.0 == 0.0) this.toLong().toString() else this.toString()
 }

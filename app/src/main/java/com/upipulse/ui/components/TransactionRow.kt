@@ -102,7 +102,7 @@ fun TransactionRow(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = transaction.account.name,
+                        text = transaction.account.displayName,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,

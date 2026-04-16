@@ -17,6 +17,59 @@ class UpiDetectionParser {
     private val creditKeywords = listOf("credited", "received", "added to", "deposited", "refund")
     // Keywords indicating a debit (expense)
     private val debitKeywords = listOf("debited", "sent", "paid", "spent", "transfer to", "payment to")
+    
+    // Signals that strongly indicate this is a real completed transaction.
+    private val transactionalSignals = listOf(
+        "debited",
+        "credited",
+        "sent",
+        "received",
+        "paid",
+        "spent",
+        "payment successful",
+        "txn successful",
+        "transaction successful",
+        "upi ref",
+        "rrn",
+        "ref no",
+        "a/c",
+        "available balance",
+        "avl bal",
+        "avl limit"
+    )
+
+    // Marketing and request patterns that should not create transactions.
+    private val promotionalNoiseKeywords = listOf(
+        "offer",
+        "discount",
+        "cashback up to",
+        "apply now",
+        "eligible for",
+        "pre-approved",
+        "loan offer",
+        "instant loan",
+        "personal loan",
+        "credit line",
+        "invite",
+        "remind",
+        "reminder",
+        "split bill",
+        "split request",
+        "collect request",
+        "payment request",
+        "pay request"
+    )
+
+    private val completionOverrideKeywords = listOf(
+        "debited",
+        "credited",
+        "payment successful",
+        "transaction successful",
+        "txn successful",
+        "sent",
+        "received",
+        "paid to"
+    )
 
     fun parse(
         body: String,
@@ -25,10 +78,8 @@ class UpiDetectionParser {
     ): Transaction? {
         val lowerBody = body.lowercase(Locale.getDefault())
         
-        // Filter out split requests or payment requests
-        if (lowerBody.contains("split") || lowerBody.contains("request")) {
-            return null
-        }
+        if (isLikelyPromotionalOrRequest(lowerBody)) return null
+        if (!hasTransactionalSignal(lowerBody)) return null
 
         // Find amount
         val amountMatch = amountRegex.find(body) ?: Regex("""\d+\.\d{2}""").find(body)
@@ -74,13 +125,32 @@ class UpiDetectionParser {
             date = timestamp,
             notes = cardSuffix?.let { "Suffix:$it|$body" } ?: body.take(140),
             source = source,
-            account = AccountSummary(id = -1, name = "Unassigned"),
+            account = AccountSummary(id = -1, bankName = "Unassigned"),
             externalId = externalId
         )
     }
 
+    private fun hasTransactionalSignal(lowerBody: String): Boolean {
+        return transactionalSignals.any { lowerBody.contains(it) }
+    }
+
+    private fun isLikelyPromotionalOrRequest(lowerBody: String): Boolean {
+        val hasNoiseKeyword = promotionalNoiseKeywords.any { lowerBody.contains(it) }
+        val hasGenericRequest = lowerBody.contains("request") && !lowerBody.contains("request completed")
+        val hasGenericLoanPromo =
+            lowerBody.contains("loan") &&
+                (lowerBody.contains("eligible") || lowerBody.contains("pre-approved") || lowerBody.contains("apply"))
+
+        if (!hasNoiseKeyword && !hasGenericRequest && !hasGenericLoanPromo) return false
+
+        val isCompletedTransaction = completionOverrideKeywords.any { lowerBody.contains(it) }
+        val cashbackCredit = lowerBody.contains("cashback") &&
+            (lowerBody.contains("credited") || lowerBody.contains("received"))
+
+        return !isCompletedTransaction && !cashbackCredit
+    }
+
     private fun extractMerchant(body: String): String? {
-        // Specific pattern for the provided example: "... time [Merchant] avl limit ..."
         val customPattern = Regex("""(?i)\d{1,2}:\d{2}\s+(?:AM|PM)?\s*([A-Za-z0-9 .@&_'-]+?)\s+avl limit""").find(body)
         if (customPattern != null) return customPattern.groupValues[1].trim()
 

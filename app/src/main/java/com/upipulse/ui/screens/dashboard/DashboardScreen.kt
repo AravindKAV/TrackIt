@@ -316,35 +316,26 @@ private fun DashboardHeroCard(
                             Spacer(modifier = Modifier.height(8.dp))
                         }
                         Text(
-                            "Total Spent", 
-                            style = MaterialTheme.typography.labelLarge, 
+                            "Monthly Balance", 
+                            style = MaterialTheme.typography.labelLarge,
                             color = Color.White.copy(alpha = 0.8f)
                         )
                         Text(
-                            formatInr(totalSpent), 
-                            style = MaterialTheme.typography.headlineSmall.copy(
-                                fontWeight = FontWeight.Black,
-                                fontSize = 24.sp
-                            ), 
+                            formatInr(totalIncome - totalSpent),
+                            style = MaterialTheme.typography.headlineLarge,
+                            fontWeight = FontWeight.ExtraBold,
                             color = Color.White
                         )
                     }
                     
-                    Column(horizontalAlignment = Alignment.End) {
-                        Spacer(modifier = Modifier.height(if (isDemo) 32.dp else 0.dp))
-                        Text(
-                            "Total Income", 
-                            style = MaterialTheme.typography.labelLarge, 
-                            color = Color.White.copy(alpha = 0.8f)
-                        )
-                        Text(
-                            formatInr(totalIncome), 
-                            style = MaterialTheme.typography.headlineSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 24.sp
-                            ), 
-                            color = Color(0xFFD1FAE5)
-                        )
+                    Surface(
+                        color = Color.White.copy(alpha = 0.2f),
+                        shape = CircleShape,
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        IconButton(onClick = { }) {
+                            Icon(Icons.Default.Add, contentDescription = "Add", tint = Color.White)
+                        }
                     }
                 }
 
@@ -353,15 +344,39 @@ private fun DashboardHeroCard(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     QuickStatChip(
-                        label = "Top Category",
-                        value = topCategory ?: "None",
+                        label = "Income", 
+                        value = formatInr(totalIncome),
                         modifier = Modifier.weight(1f)
                     )
                     QuickStatChip(
-                        label = "Peak Day",
-                        value = peakDayLabel ?: "None",
+                        label = "Expenses", 
+                        value = formatInr(totalSpent),
                         modifier = Modifier.weight(1f)
                     )
+                }
+                
+                if (topCategory != null || peakDayLabel != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (topCategory != null) {
+                            Text(
+                                text = "Top: $topCategory",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White.copy(alpha = 0.9f),
+                                modifier = Modifier.background(Color.White.copy(alpha = 0.1f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                        if (peakDayLabel != null) {
+                            Text(
+                                text = "Peak: $peakDayLabel",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White.copy(alpha = 0.9f),
+                                modifier = Modifier.background(Color.White.copy(alpha = 0.1f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -370,23 +385,24 @@ private fun DashboardHeroCard(
 
 @Composable
 private fun AccountInsightCard(spending: AccountSpending) {
-    val accent = accountAccentColor(spending.account.id)
-    val cardGradient = Brush.horizontalGradient(
-        colors = listOf(
-            accent,
-            accent.copy(alpha = 0.7f)
-        )
-    )
+    val accentColor = accountAccentColor(spending.account.id)
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(elevation = 4.dp, shape = RoundedCornerShape(24.dp))
-            .background(cardGradient, RoundedCornerShape(24.dp))
+            .height(110.dp)
+            .shadow(elevation = 2.dp, shape = RoundedCornerShape(24.dp))
+            .background(
+                brush = Brush.linearGradient(
+                    colors = listOf(accentColor, accentColor.copy(alpha = 0.8f))
+                ),
+                shape = RoundedCornerShape(24.dp)
+            )
             .clip(RoundedCornerShape(24.dp))
     ) {
+        // Decorative circles
         Box(
             modifier = Modifier
-                .size(100.dp)
+                .size(80.dp)
                 .offset(x = 280.dp, y = (-20).dp)
                 .background(Color.White.copy(alpha = 0.1f), CircleShape)
         )
@@ -417,7 +433,7 @@ private fun AccountInsightCard(spending: AccountSpending) {
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Text(
-                    spending.account.name, 
+                    spending.account.displayName,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,

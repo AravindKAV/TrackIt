@@ -178,7 +178,7 @@ class SettingsViewModel @Inject constructor(
                         val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
                         filteredTransactions.forEach { txn ->
                             val dateStr = txn.date.atZone(zoneId).format(dateFormatter)
-                            writer.write("\"$dateStr\",\"${txn.merchant}\",\"${txn.category}\",${txn.amount},\"${txn.account.name}\",\"${txn.paymentMethod}\",\"${txn.notes.orEmpty()}\"\n")
+                            writer.write("\"$dateStr\",\"${txn.merchant}\",\"${txn.category}\",${txn.amount},\"${txn.account.displayName}\",\"${txn.paymentMethod}\",\"${txn.notes.orEmpty()}\"\n")
                         }
                     }
                 }
