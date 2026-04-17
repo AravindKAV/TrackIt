@@ -9,9 +9,8 @@ import java.util.Locale
 class UpiDetectionParser {
     
     private val amountRegex = Regex("""(?i)(?:rs\.?|inr|₹|paid|spent)\s*([0-9,.]+)""")
-    private val merchantRegex = Regex("""(?i)(?:to|from|at)\s+([A-Za-z0-9 .@&_'-]+)""")
     private val cardSuffixRegex = Regex("""(?i)(?:card no\.|a/c|ending in|no\s*xx|a/c no\s*xx)\s*(\d{4})""")
-    private val upiRefRegex = Regex("""(?i)(?:upi ref no|ref no|rrn)\s*(\d+)""")
+    private val upiRefRegex = Regex("""(?i)(?:upi ref no|ref no|rrn|txn id)\s*([A-Z0-9]+)""")
     
     // Keywords indicating a credit (income)
     private val creditKeywords = listOf("credited", "received", "added to", "deposited", "refund")
@@ -113,8 +112,11 @@ class UpiDetectionParser {
             else -> "System"
         }
         
-        // Create an externalId for deduplication. 
-        val externalId = upiRef ?: "MANUAL_${amount}_${cardSuffix ?: "NOSUFFIX"}_${timestamp.toEpochMilli() / 60000}"
+        // Improved deduplication logic: 
+        // 1. If upiRef is found, use it as part of the key.
+        // 2. Otherwise, use amount + suffix + timestamp rounded to 10 minutes to allow for multiple SMS of same txn.
+        val dedupeKey = upiRef ?: "${amount}_${cardSuffix ?: "NOSUFFIX"}_${timestamp.toEpochMilli() / 600000}"
+        val externalId = "AUTO_$dedupeKey"
         
         return Transaction(
             id = 0,
@@ -151,40 +153,60 @@ class UpiDetectionParser {
     }
 
     private fun extractMerchant(body: String): String? {
-        val customPattern = Regex("""(?i)\d{1,2}:\d{2}\s+(?:AM|PM)?\s*([A-Za-z0-9 .@&_'-]+?)\s+avl limit""").find(body)
-        if (customPattern != null) return customPattern.groupValues[1].trim()
-
+        // Try various patterns commonly found in Indian bank SMS
         val patterns = listOf(
-            Regex("""(?i)to\s+([A-Za-z0-9 .@&_'-]+?)\s+(?:on|using|ref|txn|avl limit)"""),
-            Regex("""(?i)paid\s+(?:rs\.?|inr|₹)\s*[0-9,.]+\s+to\s+([A-Za-z0-9 .@&_'-]+)"""),
-            Regex("""(?i)received\s+(?:rs\.?|inr|₹)\s*[0-9,.]+\s+from\s+([A-Za-z0-9 .@&_'-]+)""")
+            // "Paid Rs.100 to MERCHANT NAME"
+            Regex("""(?i)paid\s+(?:rs\.?|inr|₹)\s*[0-9,.]+\s+to\s+([A-Za-z0-9 .@&_'-]+?)(?:\s+on|\s+using|\s+ref|\s+txn|\s+at|\.|$)"""),
+            // "Transfer to MERCHANT NAME"
+            Regex("""(?i)transfer\s+to\s+([A-Za-z0-9 .@&_'-]+?)(?:\s+on|\s+using|\s+ref|\s+txn|\s+at|\.|$)"""),
+            // "at MERCHANT NAME" (often used in card/POS transactions)
+            Regex("""(?i)at\s+([A-Za-z0-9 .@&_'-]+?)(?:\s+on|\s+using|\s+ref|\s+txn|\.|$)"""),
+            // "Received from MERCHANT NAME"
+            Regex("""(?i)received\s+(?:rs\.?|inr|₹)\s*[0-9,.]+\s+from\s+([A-Za-z0-9 .@&_'-]+?)(?:\s+on|\s+using|\s+ref|\s+txn|\s+at|\.|$)"""),
+            // HDFC style: "to VPA merchant@vpa"
+            Regex("""(?i)to\s+VPA\s+([A-Za-z0-9 .@&_'-]+)"""),
+            // Google Pay style: "You paid MERCHANT NAME"
+            Regex("""(?i)you\s+paid\s+([A-Za-z0-9 .@&_'-]+?)\s+(?:rs\.?|inr|₹)""")
         )
         
         for (pattern in patterns) {
-            pattern.find(body)?.let { return it.groupValues[1].trim() }
+            pattern.find(body)?.let { match ->
+                val merchant = match.groupValues[1].trim()
+                if (merchant.isNotEmpty() && !isGenericWord(merchant)) {
+                    return merchant
+                }
+            }
         }
         return null
     }
 
+    private fun isGenericWord(word: String): Boolean {
+        val generics = setOf("vpa", "upi", "account", "bank", "your", "the", "using")
+        return generics.contains(word.lowercase())
+    }
+
     private fun guessMerchant(body: String): String {
-        val parts = body.split(Regex("(?i)to|from|at|using"))
+        // If everything fails, try to find any text after 'to' or 'from'
+        val parts = body.split(Regex("(?i)\\bto\\b|\\bfrom\\b|\\bat\\b"))
         if (parts.size > 1) {
-            val potential = parts[1].trim().split(" ").take(3).joinToString(" ")
-            if (potential.isNotEmpty() && !potential.contains(Regex("""\d{10,12}"""))) return potential
+            val potential = parts[1].trim().split(Regex("\\s+")).take(3).joinToString(" ")
+            if (potential.isNotEmpty() && !potential.contains(Regex("""\d{10,12}"""))) {
+                return potential.replace(Regex("""[.,]$"""), "").trim()
+            }
         }
-        return "Manual Entry"
+        return "Unknown Merchant"
     }
 
     private fun inferCategory(merchant: String, body: String): String {
         val text = (merchant + " " + body).lowercase(Locale.getDefault())
         return when {
-            text.contains("swiggy") || text.contains("zomato") || text.contains("restaurant") || text.contains("food") -> "Food & Dining"
-            text.contains("uber") || text.contains("ola") || text.contains("metro") || text.contains("petrol") || text.contains("fuel") -> "Transport"
-            text.contains("amazon") || text.contains("flipkart") || text.contains("myntra") || text.contains("shopping") -> "Shopping"
-            text.contains("electric") || text.contains("bill") || text.contains("recharge") || text.contains("jio") || text.contains("airtel") || text.contains("utility") -> "Bills & Utilities"
-            text.contains("netflix") || text.contains("hotstar") || text.contains("prime video") || text.contains("movie") -> "Entertainment"
-            text.contains("mart") || text.contains("fresh") || text.contains("bigbasket") || text.contains("grocer") -> "Groceries"
-            text.contains("salary") || text.contains("stipend") -> "Salary"
+            text.contains("swiggy") || text.contains("zomato") || text.contains("restaurant") || text.contains("food") || text.contains("eat") -> "Food & Dining"
+            text.contains("uber") || text.contains("ola") || text.contains("metro") || text.contains("petrol") || text.contains("fuel") || text.contains("transport") -> "Transport"
+            text.contains("amazon") || text.contains("flipkart") || text.contains("myntra") || text.contains("shopping") || text.contains("nykaa") -> "Shopping"
+            text.contains("electric") || text.contains("bill") || text.contains("recharge") || text.contains("jio") || text.contains("airtel") || text.contains("utility") || text.contains("bescom") -> "Bills & Utilities"
+            text.contains("netflix") || text.contains("hotstar") || text.contains("prime video") || text.contains("movie") || text.contains("cinema") -> "Entertainment"
+            text.contains("mart") || text.contains("fresh") || text.contains("bigbasket") || text.contains("grocer") || text.contains("blinkit") || text.contains("zepto") -> "Groceries"
+            text.contains("salary") || text.contains("stipend") || text.contains("credited") -> "Salary"
             else -> "Others"
         }
     }
