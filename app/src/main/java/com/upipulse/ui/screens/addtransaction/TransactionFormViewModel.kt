@@ -198,7 +198,7 @@ class TransactionFormViewModel @Inject constructor(
         
         val debit = Transaction(
             amount = -amount,
-            merchant = "Transfer to ${toAcc.name}",
+            merchant = "Transfer to ${toAcc.bankName}",
             category = "Transfer",
             paymentMethod = s.paymentMethod,
             date = s.date.atStartOfDay(zoneId).toInstant(),
@@ -208,7 +208,7 @@ class TransactionFormViewModel @Inject constructor(
         )
         val credit = Transaction(
             amount = amount,
-            merchant = "Transfer from ${fromAcc.name}",
+            merchant = "Transfer from ${fromAcc.bankName}",
             category = "Transfer",
             paymentMethod = s.paymentMethod,
             date = s.date.atStartOfDay(zoneId).toInstant(),

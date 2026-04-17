@@ -241,7 +241,6 @@ class ExpenseRepositoryImpl @Inject constructor(
     }
 
     private fun TransactionWithAccountProjection.toDomain(): Transaction {
-        val bank = accountName ?: "Bank #${transaction.accountId}"
         return Transaction(
             id = transaction.id,
             amount = transaction.amount,
@@ -251,7 +250,11 @@ class ExpenseRepositoryImpl @Inject constructor(
             date = transaction.date,
             notes = transaction.notes,
             source = transaction.source,
-            account = AccountSummary(transaction.accountId, bank),
+            account = AccountSummary(
+                id = transaction.accountId, 
+                bankName = accountBankName ?: "Bank #${transaction.accountId}",
+                nickname = accountNickname
+            ),
             externalId = transaction.externalId
         )
     }

@@ -29,19 +29,19 @@ interface TransactionDao {
     suspend fun clearAll()
 
     @Query(
-        "SELECT t.*, a.name AS accountName FROM transactions t " +
+        "SELECT t.*, a.bankName AS accountBankName, a.name AS accountNickname FROM transactions t " +
             "LEFT JOIN accounts a ON a.id = t.accountId ORDER BY date DESC"
     )
     fun observeAllWithAccount(): Flow<List<TransactionWithAccountProjection>>
 
     @Query(
-        "SELECT t.*, a.name AS accountName FROM transactions t " +
+        "SELECT t.*, a.bankName AS accountBankName, a.name AS accountNickname FROM transactions t " +
             "LEFT JOIN accounts a ON a.id = t.accountId ORDER BY date DESC LIMIT :limit"
     ) 
     fun observeRecentWithAccount(limit: Int): Flow<List<TransactionWithAccountProjection>>
 
     @Query(
-        "SELECT t.*, a.name AS accountName FROM transactions t " +
+        "SELECT t.*, a.bankName AS accountBankName, a.name AS accountNickname FROM transactions t " +
             "LEFT JOIN accounts a ON a.id = t.accountId WHERE t.id = :id LIMIT 1"
     )
     fun observeWithAccount(id: Long): Flow<TransactionWithAccountProjection?>
@@ -71,6 +71,7 @@ interface TransactionDao {
 
     data class TransactionWithAccountProjection(
         @Embedded val transaction: TransactionEntity,
-        val accountName: String?
+        val accountBankName: String?,
+        val accountNickname: String?
     )
 }

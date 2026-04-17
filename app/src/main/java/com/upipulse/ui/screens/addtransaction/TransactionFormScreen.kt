@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -372,7 +373,7 @@ private fun AccountDropdownField(
         onExpandedChange = { expanded = !expanded }
     ) {
         OutlinedTextField(
-            value = selected?.name.orEmpty(),
+            value = selected?.bankName.orEmpty(),
             onValueChange = {},
             readOnly = true,
             label = { Text(label) },
@@ -391,8 +392,10 @@ private fun AccountDropdownField(
                 DropdownMenuItem(
                     text = { 
                         Column {
-                            Text(account.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(account.bankName, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(account.bankName, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            if (account.name != account.bankName) {
+                                Text(account.name, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
                         }
                     },
                     onClick = {
